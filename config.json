@@ -1,0 +1,64 @@
+{
+  "icon": "icon.svg",
+  "main": "runtime/index.js",
+  "indexState": "scoped",
+  "noteDocumentAccess": "metadata",
+  "uiSlots": {
+    "left_sidebar": "graphView.global",
+    "right_sidebar": "graphView.local",
+    "main_workspace": "graphView.globalTab"
+  },
+  "slotDefaults": {
+    "left_sidebar": {
+      "order": 90
+    },
+    "right_sidebar": {
+      "order": 50
+    }
+  },
+  "provides": [
+    {
+      "id": "workspace.surface",
+      "kind": "extension",
+      "version": "1.0.0"
+    },
+    {
+      "id": "metadataPanel.segment",
+      "kind": "extension",
+      "version": "1.0.0"
+    },
+    {
+      "id": "workspace.details",
+      "kind": "extension",
+      "version": "1.0.0"
+    },
+    {
+      "id": "workspace.bookmark",
+      "kind": "service",
+      "version": "1.0.0"
+    }
+  ],
+  "workspaceActions": {
+    "open-graph": "open"
+  },
+  "fileContextActions": [
+    {
+      "command": "open-local",
+      "label": "Open local graph view",
+      "labelKey": "surface.openLocal",
+      "icon": "git-fork"
+    }
+  ],
+  "locales": {
+    "en": "runtime/locales/en.json",
+    "de": "runtime/locales/de.json",
+    "es": "runtime/locales/es.json",
+    "fr": "runtime/locales/fr.json",
+    "zh-CN": "runtime/locales/zh-CN.json"
+  },
+  "runtime": {
+    "ui": "runtime/index.js",
+    "backend": "runtime/backend.js"
+  },
+  "settingsView": "graphView.settings"
+}

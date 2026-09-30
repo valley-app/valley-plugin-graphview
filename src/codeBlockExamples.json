@@ -1,0 +1,28 @@
+{
+  "graph": [
+    {
+      "id": "localGraph",
+      "label": "Current note graph",
+      "labelKey": "markdown.examples.localGraph",
+      "code": "depth: 1\nheight: 320"
+    },
+    {
+      "id": "linkedGraph",
+      "label": "Another note’s graph",
+      "labelKey": "markdown.examples.linkedGraph",
+      "code": "of: [[Apple/The Macintosh]]\ndepth: 2\nheight: 360"
+    },
+    {
+      "id": "globalGraph",
+      "label": "Global graph",
+      "labelKey": "markdown.examples.globalGraph",
+      "code": "global: true\nheight: 400"
+    },
+    {
+      "id": "filteredGraph",
+      "label": "Filtered global graph",
+      "labelKey": "markdown.examples.filteredGraph",
+      "code": "global: true\nquery: Apple\nheight: 400"
+    }
+  ]
+}
