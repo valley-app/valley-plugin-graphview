@@ -58,7 +58,823 @@
   },
   "runtime": {
     "ui": "runtime/index.js",
-    "backend": "runtime/backend.js"
+    "backend": "runtime/backend.js",
+    "services": [
+      {
+        "id": "command.sources",
+        "version": "1.0.0",
+        "method": "command.sourcePlugins",
+        "operation": true,
+        "request": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "response": {
+          "type": "unknown"
+        },
+        "metadata": {
+          "command": {
+            "id": "sources",
+            "description": "List enabled plugin sources contributing graph nodes",
+            "effect": "read",
+            "inputSchema": {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": false
+            },
+            "outputSchema": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "string"
+                  },
+                  "author": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "nodeTypes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "linksSourceFiles": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "version",
+                  "author",
+                  "nodeTypes",
+                  "linksSourceFiles"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    ]
   },
-  "settingsView": "graphView.settings"
+  "settingsView": "graphView.settings",
+  "settingsSchema": {
+    "fields": [
+      {
+        "key": "graphConfig",
+        "label": "Default graph configuration",
+        "type": "custom",
+        "settingsVisible": false,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "plugins": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "boolean"
+              }
+            },
+            "sourceColors": {
+              "type": "object",
+              "properties": {
+                "tags": {
+                  "type": "string"
+                },
+                "attachments": {
+                  "type": "string"
+                },
+                "orphans": {
+                  "type": "string"
+                },
+                "plugins": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "filters": {
+              "type": "object",
+              "properties": {
+                "rules": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "query": {
+                        "type": "string"
+                      },
+                      "exclude": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "query",
+                      "exclude"
+                    ]
+                  }
+                },
+                "showTags": {
+                  "type": "boolean"
+                },
+                "showAttachments": {
+                  "type": "boolean"
+                },
+                "showOrphans": {
+                  "type": "boolean"
+                },
+                "existingOnly": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "colorGroups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "query": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "query",
+                  "color"
+                ]
+              }
+            },
+            "display": {
+              "type": "object",
+              "properties": {
+                "showArrows": {
+                  "type": "boolean"
+                },
+                "nodeSize": {
+                  "type": "number",
+                  "minimum": 0.4,
+                  "maximum": 3
+                },
+                "linkThickness": {
+                  "type": "number",
+                  "minimum": 0.4,
+                  "maximum": 3
+                },
+                "textFade": {
+                  "type": "number",
+                  "minimum": 0.1,
+                  "maximum": 2
+                },
+                "showLegend": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "forces": {
+              "type": "object",
+              "properties": {
+                "center": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 3
+                },
+                "repel": {
+                  "type": "number",
+                  "minimum": 0.1,
+                  "maximum": 3
+                },
+                "link": {
+                  "type": "number",
+                  "minimum": 0.1,
+                  "maximum": 3
+                },
+                "linkDistance": {
+                  "type": "number",
+                  "minimum": 20,
+                  "maximum": 200
+                }
+              },
+              "additionalProperties": false
+            },
+            "localDepth": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      {
+        "key": "localGraphConfig",
+        "label": "Local graph configuration",
+        "type": "custom",
+        "settingsVisible": false,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "plugins": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "boolean"
+              }
+            },
+            "sourceColors": {
+              "type": "object",
+              "properties": {
+                "tags": {
+                  "type": "string"
+                },
+                "attachments": {
+                  "type": "string"
+                },
+                "orphans": {
+                  "type": "string"
+                },
+                "plugins": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "filters": {
+              "type": "object",
+              "properties": {
+                "rules": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "query": {
+                        "type": "string"
+                      },
+                      "exclude": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "query",
+                      "exclude"
+                    ]
+                  }
+                },
+                "showTags": {
+                  "type": "boolean"
+                },
+                "showAttachments": {
+                  "type": "boolean"
+                },
+                "showOrphans": {
+                  "type": "boolean"
+                },
+                "existingOnly": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "colorGroups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "query": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "query",
+                  "color"
+                ]
+              }
+            },
+            "display": {
+              "type": "object",
+              "properties": {
+                "showArrows": {
+                  "type": "boolean"
+                },
+                "nodeSize": {
+                  "type": "number",
+                  "minimum": 0.4,
+                  "maximum": 3
+                },
+                "linkThickness": {
+                  "type": "number",
+                  "minimum": 0.4,
+                  "maximum": 3
+                },
+                "textFade": {
+                  "type": "number",
+                  "minimum": 0.1,
+                  "maximum": 2
+                },
+                "showLegend": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "forces": {
+              "type": "object",
+              "properties": {
+                "center": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 3
+                },
+                "repel": {
+                  "type": "number",
+                  "minimum": 0.1,
+                  "maximum": 3
+                },
+                "link": {
+                  "type": "number",
+                  "minimum": 0.1,
+                  "maximum": 3
+                },
+                "linkDistance": {
+                  "type": "number",
+                  "minimum": 20,
+                  "maximum": 200
+                }
+              },
+              "additionalProperties": false
+            },
+            "localDepth": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      {
+        "key": "savedGraphs",
+        "label": "Saved graphs",
+        "type": "custom",
+        "settingsVisible": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "plugins": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "boolean"
+                }
+              },
+              "sourceColors": {
+                "type": "object",
+                "properties": {
+                  "tags": {
+                    "type": "string"
+                  },
+                  "attachments": {
+                    "type": "string"
+                  },
+                  "orphans": {
+                    "type": "string"
+                  },
+                  "plugins": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "filters": {
+                "type": "object",
+                "properties": {
+                  "rules": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "query": {
+                          "type": "string"
+                        },
+                        "exclude": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "query",
+                        "exclude"
+                      ]
+                    }
+                  },
+                  "showTags": {
+                    "type": "boolean"
+                  },
+                  "showAttachments": {
+                    "type": "boolean"
+                  },
+                  "showOrphans": {
+                    "type": "boolean"
+                  },
+                  "existingOnly": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "colorGroups": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string"
+                    },
+                    "color": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "query",
+                    "color"
+                  ]
+                }
+              },
+              "display": {
+                "type": "object",
+                "properties": {
+                  "showArrows": {
+                    "type": "boolean"
+                  },
+                  "nodeSize": {
+                    "type": "number",
+                    "minimum": 0.4,
+                    "maximum": 3
+                  },
+                  "linkThickness": {
+                    "type": "number",
+                    "minimum": 0.4,
+                    "maximum": 3
+                  },
+                  "textFade": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 2
+                  },
+                  "showLegend": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "forces": {
+                "type": "object",
+                "properties": {
+                  "center": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 3
+                  },
+                  "repel": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 3
+                  },
+                  "link": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 3
+                  },
+                  "linkDistance": {
+                    "type": "number",
+                    "minimum": 20,
+                    "maximum": 200
+                  }
+                },
+                "additionalProperties": false
+              },
+              "localDepth": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "default": []
+      },
+      {
+        "key": "savedLocalGraphs",
+        "label": "Saved local graphs",
+        "type": "custom",
+        "settingsVisible": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "plugins": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "boolean"
+                }
+              },
+              "sourceColors": {
+                "type": "object",
+                "properties": {
+                  "tags": {
+                    "type": "string"
+                  },
+                  "attachments": {
+                    "type": "string"
+                  },
+                  "orphans": {
+                    "type": "string"
+                  },
+                  "plugins": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "filters": {
+                "type": "object",
+                "properties": {
+                  "rules": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "query": {
+                          "type": "string"
+                        },
+                        "exclude": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "query",
+                        "exclude"
+                      ]
+                    }
+                  },
+                  "showTags": {
+                    "type": "boolean"
+                  },
+                  "showAttachments": {
+                    "type": "boolean"
+                  },
+                  "showOrphans": {
+                    "type": "boolean"
+                  },
+                  "existingOnly": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "colorGroups": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string"
+                    },
+                    "color": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "query",
+                    "color"
+                  ]
+                }
+              },
+              "display": {
+                "type": "object",
+                "properties": {
+                  "showArrows": {
+                    "type": "boolean"
+                  },
+                  "nodeSize": {
+                    "type": "number",
+                    "minimum": 0.4,
+                    "maximum": 3
+                  },
+                  "linkThickness": {
+                    "type": "number",
+                    "minimum": 0.4,
+                    "maximum": 3
+                  },
+                  "textFade": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 2
+                  },
+                  "showLegend": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "forces": {
+                "type": "object",
+                "properties": {
+                  "center": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 3
+                  },
+                  "repel": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 3
+                  },
+                  "link": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 3
+                  },
+                  "linkDistance": {
+                    "type": "number",
+                    "minimum": 20,
+                    "maximum": 200
+                  }
+                },
+                "additionalProperties": false
+              },
+              "localDepth": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "default": []
+      },
+      {
+        "key": "activeGraph",
+        "label": "Active saved graph",
+        "type": "custom",
+        "settingsVisible": false,
+        "schema": {
+          "type": "string"
+        },
+        "default": ""
+      },
+      {
+        "key": "activeLocalGraph",
+        "label": "Active saved local graph",
+        "type": "custom",
+        "settingsVisible": false,
+        "schema": {
+          "type": "string"
+        },
+        "default": ""
+      },
+      {
+        "key": "graphPins",
+        "label": "Graph node positions",
+        "type": "custom",
+        "settingsVisible": false,
+        "schema": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "y"
+            ]
+          }
+        },
+        "default": {},
+        "readOnly": true,
+        "description": "Owner-managed runtime state; change it through the owning domain operation."
+      },
+      {
+        "key": "localGraphPins",
+        "label": "Local graph node positions",
+        "type": "custom",
+        "settingsVisible": false,
+        "schema": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "y"
+            ]
+          }
+        },
+        "default": {},
+        "readOnly": true,
+        "description": "Owner-managed runtime state; change it through the owning domain operation."
+      }
+    ]
+  }
 }
