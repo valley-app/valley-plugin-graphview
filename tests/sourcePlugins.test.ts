@@ -25,8 +25,9 @@ it('describes only registered graph data, deduplicating local and qualified data
     ] }
   } as unknown as PluginBackendApi
   const dispose = register(api)
-  expect(handleOperation.mock.calls[0][0]).toBe('command.sourcePlugins')
-  expect(await handleOperation.mock.calls[0][1]({}, { api: { plugins: { list: async () => [] } } } as unknown as PluginBackendOperationContext)).toEqual([])
+  const operation = handleOperation.mock.calls.find(([id]) => id === 'command.sourcePlugins')
+  expect(operation?.[0]).toBe('command.sourcePlugins')
+  expect(await operation![1]({}, { api: { plugins: { list: async () => [] } } } as unknown as PluginBackendOperationContext)).toEqual([])
   expect(handle.mock.calls[0][0]).toBe('sourcePlugins')
   expect(assertCommandOutput('command.sourcePlugins', {}, await handle.mock.calls[0][1]({}))).toEqual([
     { id: 'fieldwork', name: 'Fieldwork', version: '1.0.0', author: [], nodeTypes: ['Observations', 'Archive notes'], linksSourceFiles: true },

@@ -45,3 +45,9 @@ Valley release maintainers explicitly import the compiled artifact into the appl
 Graph uses the SDK's `api.documents.sources()` registry and `api.documents.query()` / `onChanged()` APIs. A plugin declares each structured Markdown inbox or note field in `config.json` under `noteDocuments`, including its dataset, body column, identity and navigation command. Calendar, SideNotes and To-Do already use this contract. Sources are discovered automatically from these declarations, without a Graph-specific plugin-ID list or direct reads of another plugin's files. The settings cards use the registered dataset titles and source-file declarations returned by the plugin backend to describe graph nodes and connections, rather than the plugin’s general manifest description. Only registered sources enter the graph; disabling or unloading a provider removes its sources on the next inventory event. Ordinary vault Markdown files remain part of the vault index.
 
 New global, local and embedded graphs default to arrows and legend off, text fade 0.2, node size 1.2, link thickness 0.7, center 0.4, repel 1.3, link 0.5 and link distance 135. Explicit saved settings are preserved.
+
+## Workflow integration
+
+The backend explicitly registers its supported blocks through `registerWorkflowContribution`. Workflow calls the owning operations with their original authentication, cancellation, grants, revisions, and receipts. The catalogue publishes Draft-07 parameter and port contracts; credential administration and approval bypasses are excluded. Workflow availability is configured separately in Workflow → Plugins. Existing account, connection, and profile settings remain owned by this plugin.
+
+Workflow output collections are explicit: `sources` → `$.value`. Selectors are relative to each execution item’s `json`. The selected value is the explicit registered source list, with no graph-node or link collection inferred.

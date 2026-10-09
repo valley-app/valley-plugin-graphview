@@ -34,7 +34,7 @@ const CSS = `
 .graphview-canvas-wrap { position:relative; flex:1 1 auto; min-height:0; overflow:hidden; }
 /* Same token the label halo is read from at draw time (GraphCanvas), so the
    halo matches the backdrop exactly instead of sitting a shade off it. */
-.graphview-canvas { width:100%; height:100%; background:var(--surface-color-alt); color:var(--text-secondary); }
+.graphview-canvas { position:absolute; inset:0; width:100%; height:100%; background:var(--surface-color-alt); color:var(--text-secondary); }
 .graphview-empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
   color:var(--text-secondary); font-size:0.75rem; text-align:center; padding:0 16px; pointer-events:none; }
 

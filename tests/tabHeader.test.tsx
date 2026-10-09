@@ -1,3 +1,4 @@
+import Ajv2020 from 'ajv/dist/2020'
 import * as React from 'react'
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -11,10 +12,26 @@ import { GraphTabHeader } from '../src/GraphTabHeader'
 import { register as registerGraph } from '../src/index'
 import { METADATA_PANEL_SEGMENT_V1, PLUGIN_SURFACE_V1, WORKSPACE_DETAILS_V1 } from '@valley/plugin-sdk'
 import { GraphSearch, graphSurfaceActions, registerGraphSurfaces, useGraphSurface } from '../src/surfaces'
-import { DEFAULT_CONFIG, GLOBAL_KEYS, LOCAL_KEYS } from '../src/settings'
+import { DEFAULT_CONFIG, GLOBAL_KEYS, LOCAL_KEYS, readActiveGraph, readConfig, readSavedGraphs } from '../src/settings'
 import { PresetStore, storeFor } from '../src/presets'
 import { useNoteDocuments } from '../src/useGraph'
 import { paletteRef } from '@valley/plugin-sdk/palette'
+
+function validatePublishedResults(mock: { api: import('@valley/plugin-sdk').ValleyPluginApi }): void {
+  const original = mock.api.commands.register
+  vi.spyOn(mock.api.commands, 'register').mockImplementation(definition => {
+    const schema = (definition as typeof definition & { outputSchema?: Record<string, unknown> }).outputSchema
+    expect(schema, definition.id).toBeDefined()
+    const validate = new Ajv2020({ strict: false, strictSchema: true, allowUnionTypes: true, ownProperties: true, validateFormats: false }).compile(schema!)
+    expect(validate({ unexpected: true }), definition.id).toBe(false)
+    return original({ ...definition, run: async (input, context) => {
+      const result = await definition.run(input, context)
+      const value = definition.sideEffect === 'write' ? (result as { value: unknown }).value : result
+      expect(validate(value), `${definition.id}: ${JSON.stringify(validate.errors)}`).toBe(true)
+      return result
+    } } as typeof definition)
+  })
+}
 
 const FOCUS_PATH = 'Fern Canopy.md'
 
@@ -45,6 +62,7 @@ function setup(): MockValleyApi {
       { relPath: 'Shelf Fungus.md', title: 'Shelf Fungus', kind: 'note', mtimeMs: 0, frontmatter: {} }
     ]
   })
+  validatePublishedResults(mock)
   initRuntime(mock.api)
   return mock
 }
@@ -463,7 +481,8 @@ describe('graph documents and surface state', () => {
     const ref = { pluginId: 'fieldwork', sourceId: 'notes', itemId: 'fern' }
     const document: NoteDocument = { id: 'plugin:fieldwork/notes/fern', ref, title: 'Fern', body: '', explicitTags: [], tags: [], links: [], readOnly: false, revision: 1, vaultGeneration: 1, navigation: { command: 'fieldwork:open', args: { id: 'fern' } } }
     const mock = createMockValleyApi({ manifest: { id: 'graphView' }, documents: [document] })
-    initRuntime(mock.api)
+    validatePublishedResults(mock)
+  initRuntime(mock.api)
     const query = vi.spyOn(mock.api.documents, 'query')
     const read = vi.spyOn(mock.api.documents, 'read')
     const hook = renderHook(useNoteDocuments)
@@ -533,16 +552,149 @@ describe('graph documents and surface state', () => {
     expect(mock.api.workspace.openMainTab).not.toHaveBeenCalled()
     storeFor(GLOBAL_KEYS).apply({ ...DEFAULT_CONFIG, display: { ...DEFAULT_CONFIG.display, nodeSize: 2 } })
     expect((await mock.api.commands.execute('graphView:preset-save', { name: 'Canopy' })).ok).toBe(true)
+    const savedUndo = mock.busUndo.at(-1)!
     const inspected = await mock.api.commands.execute('graphView:inspect', { local: false })
     expect(inspected.ok).toBe(true)
     if (inspected.ok) expect(inspected.value).toMatchObject({ active: 'Canopy', config: { display: { nodeSize: 2 } } })
+    expect(await mock.api.commands.execute('graphView:properties-edit', { subject: { pluginId: 'graphView', surface: 'main_workspace', view: {} }, values: { centerId: null } })).toMatchObject({ ok: true, value: { updated: ['centerId'] } })
+    await mock.busUndo.at(-1)!.undo()
     expect((await mock.api.commands.execute('graphView:preset-rename', { name: 'Canopy', to: 'Understory' })).ok).toBe(true)
     expect(storeFor(GLOBAL_KEYS).get().active).toBe('Understory')
     await mock.busUndo.at(-1)!.undo()
     expect(storeFor(GLOBAL_KEYS).get().active).toBe('Canopy')
-    await mock.busUndo.at(-2)!.undo()
+    await savedUndo.undo()
     expect((surface.getSnapshot().view as { preset: string }).preset).toBe('')
     await expect(Promise.resolve().then(() => surface.restore({ centerId: 'Missing.md' }))).rejects.toThrow('unavailable')
+    off()
+  })
+
+  it('undoes focus back to the previous centre as well as the previous filter', async () => {
+    const mock = setup()
+    const off = registerGraph(mock.api)
+    const surface = mock.api.interop.extensions.providers(PLUGIN_SURFACE_V1).find((provider) => provider.extension.surface === 'main_workspace')!.extension
+    await surface.restore({ centerId: 'Shelf Fungus.md' }, undefined, { background: true })
+    const before = structuredClone(storeFor(GLOBAL_KEYS).get())
+    expect(await mock.api.commands.execute('graphView:focus', { path: FOCUS_PATH })).toMatchObject({ ok: true, value: { path: FOCUS_PATH } })
+    expect(surface.getSnapshot().item?.id).toBe(FOCUS_PATH)
+    expect(storeFor(GLOBAL_KEYS).get().config.filters.rules).toEqual([{ id: 'f0', query: `path:"${FOCUS_PATH}"`, exclude: false }])
+    await mock.busUndo.at(-1)!.undo()
+    expect(surface.getSnapshot().item?.id).toBe('Shelf Fungus.md')
+    expect(storeFor(GLOBAL_KEYS).get()).toEqual(before)
+    off()
+  })
+
+  it('refuses graph writes before any effect as not-applied with a code', async () => {
+    const mock = setup()
+    const off = registerGraph(mock.api)
+    const command = (id: string) => mock.commands.find((entry) => entry.id === id)!
+    const run = (id: string, input: unknown) => Promise.resolve().then(() => command(id).run(command(id).input!.parse(input), { caller: 'agent', dryRun: false } as never))
+    await mock.api.commands.execute('graphView:preset-save', { name: 'Canopy' })
+    await mock.api.commands.execute('graphView:preset-save', { name: 'Moss' })
+    const before = structuredClone(storeFor(GLOBAL_KEYS).get())
+    const settingsWrites = vi.spyOn(mock.api.settings, 'set')
+    const subject = { pluginId: 'graphView', surface: 'main_workspace', view: {} }
+    await expect(run('focus', { path: 'Missing.md' })).rejects.toMatchObject({ code: 'GRAPH_NODE_UNAVAILABLE', outcome: 'not-applied' })
+    await expect(run('properties-edit', { subject, values: { preset: 'Missing' } })).rejects.toMatchObject({ code: 'GRAPH_PRESET_UNAVAILABLE', outcome: 'not-applied' })
+    await expect(run('properties-edit', { subject, values: { centerId: 'Missing.md', config: DEFAULT_CONFIG } })).rejects.toMatchObject({ code: 'GRAPH_NODE_UNAVAILABLE', outcome: 'not-applied' })
+    for (const operation of ['select', 'rename', 'delete']) {
+      await expect(run(`preset-${operation}`, { name: 'Missing', to: 'Other' })).rejects.toMatchObject({ code: 'GRAPH_PRESET_UNAVAILABLE', outcome: 'not-applied' })
+    }
+    await expect(run('preset-rename', { name: 'Canopy', to: 'moss' })).rejects.toMatchObject({ code: 'GRAPH_PRESET_NAME_INVALID', outcome: 'not-applied' })
+    expect(settingsWrites).not.toHaveBeenCalled()
+    expect(storeFor(GLOBAL_KEYS).get()).toEqual(before)
+    expect(mock.api.workspace.openMainTab).not.toHaveBeenCalled()
+    const focus = command('focus')
+    off()
+    await expect(Promise.resolve().then(() => focus.run(focus.input!.parse({ path: FOCUS_PATH }), { caller: 'agent', dryRun: false } as never))).rejects.toMatchObject({ code: 'GRAPH_UNAVAILABLE', outcome: 'not-applied' })
+    expect(settingsWrites).not.toHaveBeenCalled()
+  })
+
+  it('rolls a graph edit back and reports an unknown outcome when its settings commit fails', async () => {
+    const mock = setup()
+    const off = registerGraph(mock.api)
+    const command = (id: string) => mock.commands.find((entry) => entry.id === id)!
+    const run = (id: string, input: unknown) => Promise.resolve().then(() => command(id).run(command(id).input!.parse(input), { caller: 'agent', dryRun: false } as never))
+    const surface = mock.api.interop.extensions.providers(PLUGIN_SURFACE_V1).find((provider) => provider.extension.surface === 'main_workspace')!.extension
+    await surface.restore({ centerId: 'Shelf Fungus.md' }, undefined, { background: true })
+    const before = structuredClone(storeFor(GLOBAL_KEYS).get())
+    const persisted = () => ({ config: readConfig(GLOBAL_KEYS), saved: readSavedGraphs(GLOBAL_KEYS), active: readActiveGraph(GLOBAL_KEYS) })
+    const persistedBefore = structuredClone(persisted())
+    const write = vi.spyOn(mock.api.settings, 'set').mockRejectedValueOnce(new Error('Synthetic save failure'))
+    const subject = { pluginId: 'graphView', surface: 'main_workspace', view: {} }
+    const edited = { ...DEFAULT_CONFIG, display: { ...DEFAULT_CONFIG.display, nodeSize: 2.4 } }
+    await expect(run('properties-edit', { subject, values: { centerId: FOCUS_PATH, config: edited } })).rejects.toMatchObject({ outcome: 'unknown', message: 'Synthetic save failure' })
+    expect(surface.getSnapshot().item?.id).toBe('Shelf Fungus.md')
+    expect(storeFor(GLOBAL_KEYS).get()).toEqual(before)
+    expect(persisted()).toEqual(persistedBefore)
+    write.mockRejectedValueOnce(new Error('Synthetic save failure'))
+    await expect(run('search', { query: 'tag:moss' })).rejects.toMatchObject({ outcome: 'unknown' })
+    expect(storeFor(GLOBAL_KEYS).get()).toEqual(before)
+    expect(persisted()).toEqual(persistedBefore)
+    write.mockRestore()
+    off()
+  })
+
+  it('rolls saved-graph commands back with an unknown outcome when their commit fails, and says when the rollback failed too', async () => {
+    const mock = setup()
+    const off = registerGraph(mock.api)
+    const command = (id: string) => mock.commands.find((entry) => entry.id === id)!
+    const run = (id: string, input: unknown) => Promise.resolve().then(() => command(id).run(command(id).input!.parse(input), { caller: 'agent', dryRun: false } as never))
+    await mock.api.commands.execute('graphView:preset-save', { name: 'Canopy' })
+    await mock.api.commands.execute('graphView:preset-save', { name: 'Moss' })
+    const before = structuredClone(storeFor(GLOBAL_KEYS).get())
+    const persisted = () => ({ config: readConfig(GLOBAL_KEYS), saved: readSavedGraphs(GLOBAL_KEYS), active: readActiveGraph(GLOBAL_KEYS) })
+    const persistedBefore = structuredClone(persisted())
+    const set = mock.api.settings.set.bind(mock.api.settings)
+    const stored = structuredClone(mock.api.settings.get()) as Record<string, unknown>
+    // Every write of a changed value fails; writing the prior value back (the rollback) succeeds.
+    const write = vi.spyOn(mock.api.settings, 'set').mockImplementation(async (...args: Parameters<typeof set>) => {
+      if (JSON.stringify(args[1]) !== JSON.stringify(stored[args[0]])) throw new Error('Synthetic save failure')
+      return set(...args)
+    })
+    for (const [operation, input] of [['save', { name: 'Fern' }], ['select', { name: 'Canopy' }], ['rename', { name: 'Canopy', to: 'Understory' }], ['delete', { name: 'Canopy' }]] as const) {
+      await expect(run(`preset-${operation}`, input), operation).rejects.toMatchObject({ outcome: 'unknown', rollback: 'restored', message: 'Synthetic save failure' })
+      expect(storeFor(GLOBAL_KEYS).get(), operation).toEqual(before)
+      expect(persisted(), operation).toEqual(persistedBefore)
+    }
+    write.mockRejectedValue(new Error('Synthetic save failure'))
+    await expect(run('preset-delete', { name: 'Canopy' })).rejects.toMatchObject({ outcome: 'unknown', rollback: 'failed', rollbackError: { message: 'Synthetic save failure' }, message: expect.stringContaining('also failed') })
+    write.mockRestore()
+    off()
+  })
+
+  it('rolls the focus filter back with an unknown outcome when the index goes stale during its commit', async () => {
+    const mock = setup()
+    const off = registerGraph(mock.api)
+    const command = (id: string) => mock.commands.find((entry) => entry.id === id)!
+    const surface = mock.api.interop.extensions.providers(PLUGIN_SURFACE_V1).find((provider) => provider.extension.surface === 'main_workspace')!.extension
+    await surface.restore({ centerId: 'Shelf Fungus.md' }, undefined, { background: true })
+    const before = structuredClone(storeFor(GLOBAL_KEYS).get())
+    const persisted = () => ({ config: readConfig(GLOBAL_KEYS), saved: readSavedGraphs(GLOBAL_KEYS), active: readActiveGraph(GLOBAL_KEYS) })
+    const persistedBefore = structuredClone(persisted())
+    const state = mock.api.getState()
+    const set = mock.api.settings.set.bind(mock.api.settings)
+    const getState = vi.spyOn(mock.api, 'getState')
+    const write = vi.spyOn(mock.api.settings, 'set').mockImplementationOnce(async (...args: Parameters<typeof set>) => {
+      getState.mockReturnValue({ ...state, vault: { path: '/mock/other', name: 'other', displayName: 'other' } } as never)
+      return set(...args)
+    })
+    const focus = command('focus')
+    await expect(Promise.resolve().then(() => focus.run(focus.input!.parse({ path: FOCUS_PATH }), { caller: 'agent', dryRun: false } as never))).rejects.toMatchObject({ outcome: 'unknown', rollback: 'restored' })
+    expect(write.mock.calls.length).toBeGreaterThan(1)
+    expect(storeFor(GLOBAL_KEYS).get()).toEqual(before)
+    expect(persisted()).toEqual(persistedBefore)
+    expect(surface.getSnapshot().item?.id).toBe('Shelf Fungus.md')
+    expect(mock.api.workspace.openMainTab).not.toHaveBeenCalled()
+    getState.mockRestore()
+    write.mockRestore()
+    off()
+  })
+
+  it('declares the window-changing open commands as execute, not read', () => {
+    const mock = setup()
+    const off = registerGraph(mock.api)
+    const effects = Object.fromEntries(mock.api.commands.list().map((command) => [command.id, command.sideEffect]))
+    expect(effects).toMatchObject({ 'graphView:open': 'execute', 'graphView:open-local': 'execute', 'graphView:inspect': 'read' })
     off()
   })
 })

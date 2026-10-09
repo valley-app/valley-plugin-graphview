@@ -127,7 +127,187 @@
             }
           }
         }
+      },
+      {
+        "id": "workflow.provider",
+        "version": "1.0.0",
+        "method": "workflow.execute",
+        "operation": true,
+        "request": {
+          "type": "unknown"
+        },
+        "response": {
+          "type": "unknown"
+        },
+        "metadata": {
+          "workflow": {
+            "providerId": "graphView",
+            "providerVersion": "1.0.0",
+            "nodes": [
+              {
+                "id": "sources",
+                "type": "action",
+                "version": "1.0.0",
+                "displayName": "List enabled plugin sources contributing graph nodes",
+                "description": "List enabled plugin sources contributing graph nodes. Uses the owning plugin backend and its existing grants and revision checks.",
+                "effect": "read",
+                "idempotent": true,
+                "executionMode": "item",
+                "inputs": [
+                  {
+                    "id": "input",
+                    "label": "Input",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object"
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "output",
+                    "label": "Result",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "version": {
+                                "type": "string"
+                              },
+                              "author": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "nodeTypes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "linksSourceFiles": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "version",
+                              "author",
+                              "nodeTypes",
+                              "linksSourceFiles"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "value"
+                      ],
+                      "additionalProperties": false,
+                      "$schema": "http://json-schema.org/draft-07/schema#"
+                    },
+                    "collection": {
+                      "selector": "$.value"
+                    }
+                  }
+                ],
+                "parameterSchema": {
+                  "type": "object",
+                  "properties": {},
+                  "required": [],
+                  "additionalProperties": false,
+                  "$schema": "http://json-schema.org/draft-07/schema#"
+                },
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          },
+                          "author": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "nodeTypes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "linksSourceFiles": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "version",
+                          "author",
+                          "nodeTypes",
+                          "linksSourceFiles"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "value"
+                  ],
+                  "additionalProperties": false,
+                  "$schema": "http://json-schema.org/draft-07/schema#"
+                },
+                "readiness": {
+                  "state": "Available"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "workflow.catalog",
+        "version": "1.0.0",
+        "method": "workflow.catalog",
+        "request": {
+          "type": "unknown"
+        },
+        "response": {
+          "type": "unknown"
+        },
+        "operation": true
       }
+    ],
+    "largeDataOperations": [
+      "workflow.execute"
     ]
   },
   "settingsView": "graphView.settings",
@@ -876,5 +1056,8 @@
         "description": "Owner-managed runtime state; change it through the owning domain operation."
       }
     ]
+  },
+  "permissions": {
+    "largeData": true
   }
 }

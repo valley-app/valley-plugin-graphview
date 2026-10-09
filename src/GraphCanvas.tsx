@@ -737,14 +737,20 @@ export const GraphCanvas = ({
     const wrap = wrapRef.current
     const canvas = canvasRef.current
     if (!wrap || !canvas) return
+    const view = canvas.ownerDocument.defaultView as Window & typeof globalThis
+    let released = false
+    let pendingResize: number | null = null
     const apply = (): void => {
+      pendingResize = null
+      if (released) return
       try { owner.assertCurrent() } catch { return }
       const rect = wrap.getBoundingClientRect()
-      const dpr = canvas.ownerDocument.defaultView?.devicePixelRatio || 1
+      const dpr = view.devicePixelRatio || 1
       const previous = sizeRef.current
-      sizeRef.current = { w: rect.width, h: rect.height }
       const width = Math.max(1, Math.round(rect.width * dpr))
       const height = Math.max(1, Math.round(rect.height * dpr))
+      if (previous.w === rect.width && previous.h === rect.height && canvas.width === width && canvas.height === height) return
+      sizeRef.current = { w: rect.width, h: rect.height }
       if (canvas.width !== width) canvas.width = width
       if (canvas.height !== height) canvas.height = height
       canvas.style.width = `${rect.width}px`
@@ -766,10 +772,17 @@ export const GraphCanvas = ({
       ensureRunning()
     }
     apply()
-    const ro = new (canvas.ownerDocument.defaultView as Window & typeof globalThis).ResizeObserver(apply)
+    const ro = new view.ResizeObserver(() => {
+      if (!released && pendingResize === null) pendingResize = view.requestAnimationFrame(apply)
+    })
     ro.observe(wrap)
-    let released = false
-    const cleanup = (): void => { if (!released) { released = true; ro.disconnect() } }
+    const cleanup = (): void => {
+      if (released) return
+      released = true
+      ro.disconnect()
+      if (pendingResize !== null) view.cancelAnimationFrame(pendingResize)
+      pendingResize = null
+    }
     const offOwner = owner.onDispose(cleanup)
     return () => { offOwner(); cleanup() }
   }, [owner, ensureRunning])

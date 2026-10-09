@@ -1,9 +1,31 @@
-import type { ValleyPluginApi } from '@valley/plugin-sdk'
+import type { PluginCommand, ValleyPluginApi } from '@valley/plugin-sdk'
+import type { CommandSideEffect } from '@valley/plugin-sdk/commands'
 import { GLOBAL_KEYS, LOCAL_KEYS, readPins, pinsKeyFor } from './settings'
 import { storeFor } from './presets'
-import { patchGraphSurface } from './surfaces'
+import { abandonGraphEdit, beforeEffect, commitGraphEdit, patchGraphSurface, readGraphSurface, refuse } from './surfaces'
 import { uiText } from './localization'
 import { getGraphIndex } from './indexOwner'
+
+const resultText = { type: 'string', maxLength: 65536 }
+const resultNumber = { type: 'number' }
+const resultBoolean = { type: 'boolean' }
+const resultObject = (properties: Record<string, unknown>, required = Object.keys(properties)): Record<string, unknown> => ({ type: 'object', properties, required, additionalProperties: false })
+const resultList = (items: Record<string, unknown>, maxItems = 1000): Record<string, unknown> => ({ type: 'array', items, maxItems })
+const resultRecord = (additionalProperties: Record<string, unknown>): Record<string, unknown> => ({ type: 'object', propertyNames: { maxLength: 256 }, additionalProperties, maxProperties: 1000 })
+const graphConfigResult = resultObject({
+  plugins: resultRecord(resultBoolean), sourceColors: resultObject({ tags: resultText, attachments: resultText, orphans: resultText, plugins: resultRecord(resultText) }),
+  filters: resultObject({ rules: resultList(resultObject({ id: resultText, query: resultText, exclude: resultBoolean })), showTags: resultBoolean, showAttachments: resultBoolean, showOrphans: resultBoolean, existingOnly: resultBoolean }),
+  colorGroups: resultList(resultObject({ id: resultText, query: resultText, color: resultText })),
+  display: resultObject({ showArrows: resultBoolean, nodeSize: resultNumber, linkThickness: resultNumber, textFade: resultNumber, showLegend: resultBoolean }),
+  forces: resultObject({ center: resultNumber, repel: resultNumber, link: resultNumber, linkDistance: resultNumber }), localDepth: { type: 'integer', minimum: 0 }
+})
+const graphNamedResult = resultObject({ name: resultText })
+export const graphResults: Record<string, Record<string, unknown>> = {
+  open: resultObject({ opened: { const: true } }), 'open-local': resultObject({ opened: { const: true } }), search: resultObject({ query: resultText }), focus: resultObject({ path: resultText }),
+  inspect: resultObject({ config: graphConfigResult, saved: resultList(resultObject({ ...(graphConfigResult.properties as Record<string, unknown>), name: resultText })), active: resultText, defaultConfig: graphConfigResult, pins: resultRecord(resultObject({ x: resultNumber, y: resultNumber })) }),
+  'preset-save': graphNamedResult, 'preset-select': graphNamedResult, 'preset-rename': graphNamedResult, 'preset-delete': graphNamedResult, pin: resultObject({ id: resultText, pinned: resultBoolean }),
+  'properties-edit': resultObject({ updated: resultList({ enum: ['config', 'preset', 'centerId'] }, 3) })
+}
 
 /**
  * `graphView:*` command-bus commands — open the graph from ⌘P/CLI/agent and
@@ -11,6 +33,12 @@ import { getGraphIndex } from './indexOwner'
  * a freshly opened tab picks them up.
  */
 export function registerGraphCommands(api: ValleyPluginApi): () => void {
+  const register = <I = void, O = void, E extends CommandSideEffect = 'read'>(definition: PluginCommand<I, O, E>): (() => void) => {
+    const outputSchema = graphResults[definition.id]
+    if (!outputSchema) throw new Error(`Missing result contract for ${definition.id}.`)
+    const command: PluginCommand<I, O, E> & { outputSchema: Record<string, unknown>; limits: Record<string, number> } = { ...definition, outputSchema, limits: { requestBytes: 1048576, responseBytes: 1048576 } }
+    return api.commands.register(command)
+  }
   const index = getGraphIndex(api)
   let active = true
   // One command-set query replaces the whole rule list, exactly as it replaced
@@ -20,17 +48,17 @@ export function registerGraphCommands(api: ValleyPluginApi): () => void {
     const previous = structuredClone(store.get())
     const config = previous.config
     const rules = query.trim() ? [{ id: 'f0', query, exclude: false }] : []
-    store.apply({ ...config, filters: { ...config.filters, rules } })
-    await store.commit()
-    return { label: uiText('surface.config'), run: async () => store.restore(previous) }
+    await commitGraphEdit(store, previous, () => store.apply({ ...config, filters: { ...config.filters, rules } }))
+    return { store, previous, revert: { label: uiText('surface.config'), run: async () => store.restore(previous) } }
   }
 
   const offs = [
-    api.commands.register({
+    register({
       id: 'open',
       label: 'Graph: open', labelKey: 'auto.294209f3ac65',
       paletteSafe: true,
-      sideEffect: 'read',
+      // Opening or focusing a tab changes window state; it is not a read.
+      sideEffect: 'execute',
       input: { schema: { type: 'object', properties: { newTab: { type: 'boolean' } }, additionalProperties: false }, parse: (raw) => ({ newTab: (raw as { newTab?: unknown } | undefined)?.newTab === true }) },
       run: ({ newTab }) => {
         api.workspace.openMainTab({ newTab })
@@ -38,11 +66,11 @@ export function registerGraphCommands(api: ValleyPluginApi): () => void {
       },
       formatCli: () => 'Opened the graph.'
     }),
-    api.commands.register({
-      id: 'open-local', label: 'Open local graph view', labelKey: 'surface.openLocal', sideEffect: 'read', paletteSafe: true,
+    register({
+      id: 'open-local', label: 'Open local graph view', labelKey: 'surface.openLocal', sideEffect: 'execute', paletteSafe: true,
       run: () => { api.workspace.revealOwnPanel('right_sidebar'); return { opened: true } }
     }),
-    api.commands.register({
+    register({
       id: 'search',
       label: 'Graph: filter by query', labelKey: 'auto.aa75a777b344',
       paletteSafe: false,
@@ -60,13 +88,13 @@ export function registerGraphCommands(api: ValleyPluginApi): () => void {
         fromCli: (args) => ({ query: args.join(' ').trim() })
       },
       run: async ({ query }) => {
-        const revert = await setQuery(query)
+        const { revert } = await setQuery(query)
         api.workspace.openMainTab()
         return { value: { query }, revert }
       },
       formatCli: (v) => `Graph filtered to "${(v as { query: string }).query}".`
     }),
-    api.commands.register({
+    register({
       id: 'focus',
       label: 'Graph: focus a file', labelKey: 'auto.9787b2e2d912',
       paletteSafe: false,
@@ -85,29 +113,39 @@ export function registerGraphCommands(api: ValleyPluginApi): () => void {
         fromCli: (args) => ({ path: args.join(' ').trim() })
       },
       run: async ({ path }) => {
-        if (!active) throw new Error(uiText('surface.unavailable'))
-        await index.ready()
-        if (!active) throw new Error(uiText('surface.unavailable'))
-        index.assertCurrent()
-        if (!index.entries().some((entry) => entry.relPath === path)) throw new Error(uiText('surface.unavailable'))
-        const revert = await setQuery(`path:"${path}"`)
-        if (!active) throw new Error(uiText('surface.unavailable'))
-        index.assertCurrent()
+        await beforeEffect(async () => {
+          if (!active) throw refuse('GRAPH_UNAVAILABLE', uiText('surface.unavailable'))
+          await index.ready()
+        })
+        const previousCenter = beforeEffect(() => {
+          if (!active) throw refuse('GRAPH_UNAVAILABLE', uiText('surface.unavailable'))
+          index.assertCurrent()
+          if (!index.entries().some((entry) => entry.relPath === path)) throw refuse('GRAPH_NODE_UNAVAILABLE', uiText('surface.unavailable'))
+          return readGraphSurface('main_workspace').centerId
+        })
+        const { store, previous, revert: config } = await setQuery(`path:"${path}"`)
+        // The filter is already committed here, so a failure must roll it back and report an unknown outcome.
+        try {
+          if (!active) throw refuse('GRAPH_UNAVAILABLE', uiText('surface.unavailable'))
+          index.assertCurrent()
+        } catch (cause) { throw await abandonGraphEdit(store, previous, cause) }
         patchGraphSurface('main_workspace', { centerId: path })
         api.workspace.openMainTab()
+        // Undo puts back both effects: the stored filter and the centre focus moved the graph to.
+        const revert = { label: config.label, run: async () => { try { await config.run() } finally { patchGraphSurface('main_workspace', { centerId: previousCenter }) } } }
         return { value: { path }, revert }
       },
       formatCli: (v) => `Graph focused on ${(v as { path: string }).path}.`
     })
   ]
   const parseScope = (raw: unknown): { local: boolean } => ({ local: (raw as { local?: unknown })?.local === true })
-  offs.push(api.commands.register({
+  offs.push(register({
     id: 'inspect', label: 'Graph: Inspect configuration and saved graphs', labelKey: 'surface.inspect', sideEffect: 'read', paletteSafe: false,
     input: { schema: { type: 'object', properties: { local: { type: 'boolean' } }, additionalProperties: false }, parse: parseScope, fromCli: (_args, flags) => ({ local: flags.local === true }) },
     run: ({ local }) => ({ ...structuredClone(storeFor(local ? LOCAL_KEYS : GLOBAL_KEYS).get()), pins: readPins(local ? LOCAL_KEYS : GLOBAL_KEYS) })
   }))
   for (const operation of ['save', 'select', 'rename', 'delete'] as const) {
-    offs.push(api.commands.register<{ name: string; to: string; local: boolean }, { name: string }, 'write'>({
+    offs.push(register<{ name: string; to: string; local: boolean }, { name: string }, 'write'>({
       id: `preset-${operation}`, label: `Graph: ${operation} saved graph`, labelKey: `surface.preset-${operation}`, sideEffect: 'write', paletteSafe: false,
       input: { schema: { type: 'object', required: ['name'], properties: { name: { type: 'string', minLength: 1 }, to: { type: 'string' }, local: { type: 'boolean' } }, additionalProperties: false }, parse: (raw) => {
         const input = raw as { name?: unknown; to?: unknown; local?: unknown }
@@ -116,19 +154,25 @@ export function registerGraphCommands(api: ValleyPluginApi): () => void {
       }, fromCli: (args, flags) => ({ name: args.join(' '), to: flags.to, local: flags.local === true }) },
       revision: ({ local }) => storeFor(local ? LOCAL_KEYS : GLOBAL_KEYS).get(),
       run: async ({ name, to, local }) => {
-        const store = storeFor(local ? LOCAL_KEYS : GLOBAL_KEYS)
-        const previous = structuredClone(store.get())
-        if (operation !== 'save' && !previous.saved.some((preset) => preset.name === name)) throw new Error(uiText('surface.unavailable'))
-        if (operation === 'save') store.saveAs(name)
-        else if (operation === 'select') store.select(name)
-        else if (operation === 'delete') store.deleteGraph(name)
-        else if (!store.renameGraph(name, to)) throw new Error(uiText('surface.invalid'))
-        await store.commit()
+        const { store, previous } = beforeEffect(() => {
+          const store = storeFor(local ? LOCAL_KEYS : GLOBAL_KEYS)
+          const previous = structuredClone(store.get())
+          if (operation !== 'save' && !previous.saved.some((preset) => preset.name === name)) throw refuse('GRAPH_PRESET_UNAVAILABLE', uiText('surface.unavailable'))
+          // The same check renameGraph makes before it changes anything.
+          if (operation === 'rename' && store.nameError(to, name)) throw refuse('GRAPH_PRESET_NAME_INVALID', uiText('surface.invalid'))
+          return { store, previous }
+        })
+        await commitGraphEdit(store, previous, () => {
+          if (operation === 'save') store.saveAs(name)
+          else if (operation === 'select') store.select(name)
+          else if (operation === 'delete') store.deleteGraph(name)
+          else if (!store.renameGraph(name, to)) throw new Error(uiText('surface.invalid'))
+        })
         return { value: { name: operation === 'rename' ? to : name }, revert: { label: uiText(`surface.preset-${operation}`), run: async () => store.restore(previous) } }
       }
     }))
   }
-  offs.push(api.commands.register<{ id: string; x?: number; y?: number; local: boolean }, { id: string; pinned: boolean }, 'write'>({
+  offs.push(register<{ id: string; x?: number; y?: number; local: boolean }, { id: string; pinned: boolean }, 'write'>({
     id: 'pin', label: 'Graph: Pin or unpin a node', labelKey: 'surface.pin', sideEffect: 'write', paletteSafe: false,
     input: { schema: { type: 'object', required: ['id'], properties: { id: { type: 'string', minLength: 1 }, x: { type: 'number' }, y: { type: 'number' }, local: { type: 'boolean' } }, additionalProperties: false }, parse: (raw) => {
       const input = raw as { id?: unknown; x?: unknown; y?: unknown; local?: unknown }

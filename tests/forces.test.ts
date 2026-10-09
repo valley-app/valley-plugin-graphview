@@ -109,6 +109,7 @@ function cameraHarness(data: GraphData) {
     arc,
     frames,
     canvas,
+    unmount: mounted.unmount,
     step(ms = 16) {
       now += ms
       const pending = [...frames.values()]
@@ -123,6 +124,28 @@ function cameraHarness(data: GraphData) {
 }
 
 describe('smooth graph camera', () => {
+  it('coalesces resize notifications outside observer delivery and cancels queued geometry after unmount', () => {
+    const view = cameraHarness({ nodes: [node('single', 0, 0)], edges: [] })
+    view.settle()
+    expect(view.canvas.width).toBe(800)
+    view.resize(900)
+    view.resize(1000)
+    expect(view.canvas.width).toBe(800)
+    expect(view.frames.size).toBe(1)
+    view.step()
+    expect(view.canvas.width).toBe(1000)
+    view.settle()
+    view.resize(1000)
+    view.step()
+    expect(view.frames.size).toBe(0)
+    view.resize(1200)
+    const pending = [...view.frames.values()]
+    view.unmount()
+    expect(view.frames.size).toBe(0)
+    act(() => { for (const frame of pending) frame(1000) })
+    expect(view.canvas.width).toBe(1000)
+  })
+
   it('draws a lone node centered from its first frame without drifting or flickering', () => {
     const single = node('single', 320, -170)
     const view = cameraHarness({ nodes: [single], edges: [] })
@@ -228,8 +251,14 @@ describe('graph visual hierarchy', () => {
     act(() => { visibility = 'visible'; document.dispatchEvent(new Event('visibilitychange')) })
     expect(frames.size).toBe(1)
     act(() => { width = 0; resize() })
+    const hiddenFrames = [...frames.values()]
+    frames.clear()
+    act(() => { for (const callback of hiddenFrames) callback(24) })
     expect(frames.size).toBe(0)
     act(() => { width = 800; resize() })
+    const sizeFrames = [...frames.values()]
+    frames.clear()
+    act(() => { for (const callback of sizeFrames) callback(28) })
     expect(frames.size).toBe(1)
     const resumed = [...frames.values()][0]
     frames.clear()

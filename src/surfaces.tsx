@@ -1,9 +1,10 @@
+import { graphResults } from './commands'
 import { subscribeRuntimePalette } from '@valley/plugin-sdk/palette'
 import { METADATA_PANEL_SEGMENT_V1, provideBookmarkSurface, WORKSPACE_DETAILS_V1, parseNoteDocumentId, type PluginInspectionSubject, type PluginProperty, type UiMenuItem, type ValleyPluginApi } from '@valley/plugin-sdk'
 import { absoluteVaultPath, buildAppOpenUrl, type PluginLinkState } from '@valley/plugin-sdk/paths'
 import type { SlotId, WorkspaceViewStateValue } from '@valley/plugin-sdk/types'
 import { React, api } from './runtime'
-import { storeFor, useGraphPresets } from './presets'
+import { storeFor, useGraphPresets, type PresetStore, type StoreState } from './presets'
 import { GLOBAL_KEYS, LOCAL_KEYS, mergeConfig, readPins, writePins } from './settings'
 import { GRAPH_SECTIONS, type GraphSection } from './GraphControls'
 import { Copy, ExternalLink, FolderOpen, History, PinOff } from './icons'
@@ -60,6 +61,45 @@ function subscribe(listener: () => void): () => void {
   return () => { listeners.delete(listener) }
 }
 export function patchGraphSurface(surface: SlotId, patch: Partial<GraphView>): void { Object.assign(view(surface), patch); notify() }
+export function readGraphSurface(surface: SlotId): GraphView { return { ...view(surface) } }
+
+/** A refusal raised before a command's first effect: the bus settles it as not-applied, never as an unknown outcome. */
+export const refuse = (code: string, message: string): Error => Object.assign(new Error(message), { code, outcome: 'not-applied' as const })
+const notApplied = (cause: unknown): unknown => (cause as { outcome?: unknown })?.outcome === 'not-applied' ? cause : Object.assign(refuse('GRAPH_UNAVAILABLE', cause instanceof Error ? cause.message : String(cause)), { cause })
+/** Runs the checks that precede a command's first effect, so any failure in them is a known no-effect refusal. */
+export function beforeEffect<T>(check: () => T): T {
+  try {
+    const result = check()
+    return (result instanceof Promise ? result.catch((cause: unknown) => { throw notApplied(cause) }) : result) as T
+  } catch (cause) { throw notApplied(cause) }
+}
+/**
+ * Rolls the store (and any view change via `rollback`) back to `prior` after an
+ * edit failed past its first effect, and returns the error to throw. The outcome
+ * stays unknown, because some settings writes may already have landed; the
+ * error says whether the rollback itself landed, so a double failure is diagnosable.
+ */
+export async function abandonGraphEdit(store: PresetStore, prior: StoreState, cause: unknown, rollback: () => void = () => {}): Promise<Error> {
+  const message = cause instanceof Error ? cause.message : String(cause)
+  let restored = false
+  let rollbackError: unknown
+  try { await store.restore(prior); restored = true } catch (error) { rollbackError = error } finally { rollback() }
+  if (restored) return Object.assign(new Error(message), { cause, outcome: 'unknown' as const, rollback: 'restored' as const })
+  const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
+  return Object.assign(new Error(`${message} Restoring the previous graph settings also failed: ${rollbackMessage}`), { cause, outcome: 'unknown' as const, rollback: 'failed' as const, rollbackError })
+}
+/**
+ * Applies a graph edit and commits it. A failed commit rolls the store (and any
+ * view change via `rollback`) back to `prior` and reports the outcome as unknown.
+ */
+export async function commitGraphEdit(store: PresetStore, prior: StoreState, effect: () => void, rollback: () => void = () => {}): Promise<void> {
+  try {
+    effect()
+    await store.commit()
+  } catch (cause) {
+    throw await abandonGraphEdit(store, prior, cause, rollback)
+  }
+}
 export function animateGraph(surface: SlotId = 'main_workspace'): void {
   patchGraphSurface(surface, { animationRun: view(surface).animationRun + 1 })
 }
@@ -99,14 +139,14 @@ async function validateCenter(value: unknown, index: GraphIndex): Promise<string
   if (typeof value === 'string') {
     const ref = parseNoteDocumentId(value)
     if (ref) {
-      if (!(await index.api.documents.read(ref))) throw new Error(uiText('surface.unavailable'))
+      if (!(await index.api.documents.read(ref))) throw refuse('GRAPH_NODE_UNAVAILABLE', uiText('surface.unavailable'))
       index.assertCurrent()
       return value
     }
   }
   await index.ready()
   index.assertCurrent()
-  if (typeof value !== 'string' || (!value.startsWith('tag:') && !index.entries().some((entry) => entry.relPath === value))) throw new Error(uiText('surface.unavailable'))
+  if (typeof value !== 'string' || (!value.startsWith('tag:') && !index.entries().some((entry) => entry.relPath === value))) throw refuse('GRAPH_NODE_UNAVAILABLE', uiText('surface.unavailable'))
   return value
 }
 
@@ -242,6 +282,7 @@ export function registerGraphSurfaces(pluginApi: ValleyPluginApi): () => void {
     }, render: () => <GraphSearch />
   }))
   offs.push(pluginApi.commands.register<EditInput, { updated: string[] }, 'write'>({
+    ...({ outputSchema: graphResults['properties-edit'] } as { outputSchema: Record<string, unknown> }),
     id: 'properties-edit', label: 'Graph: Edit properties', labelKey: 'surface.edit', sideEffect: 'write', paletteSafe: false,
     input: { schema: { type: 'object', required: ['subject', 'values'], properties: { subject: { type: 'object' }, values: { type: 'object', properties: { config: { type: 'object' }, preset: { type: 'string' }, centerId: { type: ['string', 'null'] } }, additionalProperties: false } }, additionalProperties: false }, parse: (raw) => {
       const input = raw as EditInput
@@ -251,17 +292,24 @@ export function registerGraphSurfaces(pluginApi: ValleyPluginApi): () => void {
     } },
     revision: ({ subject }) => ({ config: storeFor(keysFor(subject.surface)).get(), view: view(subject.surface) }),
     run: async ({ subject, values }) => {
-      assertActive()
-      const store = storeFor(keysFor(subject.surface))
-      const prior = structuredClone(store.get())
-      const previousView = { ...view(subject.surface) }
-      const centerId = values.centerId !== undefined ? await validateCenter(values.centerId, index) : previousView.centerId
-      assertActive()
-      if (values.preset && !prior.saved.some((preset) => preset.name === values.preset)) throw new Error(uiText('surface.unavailable'))
-      if (values.preset !== undefined) store.select(values.preset)
-      if (values.config !== undefined) store.apply(mergeConfig(values.config))
-      patchGraphSurface(subject.surface, { centerId })
-      await store.commit()
+      const validated = await beforeEffect(async () => {
+        assertActive()
+        return values.centerId !== undefined ? { centerId: await validateCenter(values.centerId, index) } : null
+      })
+      // Snapshot after the awaited checks so the revert restores exactly what this edit replaces.
+      const { store, prior, previousView, config } = beforeEffect(() => {
+        assertActive()
+        const store = storeFor(keysFor(subject.surface))
+        const prior = structuredClone(store.get())
+        if (values.preset && !prior.saved.some((preset) => preset.name === values.preset)) throw refuse('GRAPH_PRESET_UNAVAILABLE', uiText('surface.unavailable'))
+        return { store, prior, previousView: { ...view(subject.surface) }, config: values.config !== undefined ? mergeConfig(values.config) : undefined }
+      })
+      const centerId = validated ? validated.centerId : previousView.centerId
+      await commitGraphEdit(store, prior, () => {
+        if (values.preset !== undefined) store.select(values.preset)
+        if (config !== undefined) store.apply(config)
+        patchGraphSurface(subject.surface, { centerId })
+      }, () => patchGraphSurface(subject.surface, previousView))
       return { value: { updated: Object.keys(values) }, revert: { label: uiText('surface.edit'), run: async () => { await store.restore(prior); patchGraphSurface(subject.surface, previousView) } } }
     }
   }))
