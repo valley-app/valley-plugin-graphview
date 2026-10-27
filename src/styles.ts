@@ -123,6 +123,7 @@ const CSS = `
   background:var(--accent-color); color:#fff; font-size:0.75rem; font-weight:600; cursor:pointer; }
 .graphview-btn-accent:hover { filter:brightness(1.06); }
 .graphview-hint { font-size:0.65625rem; line-height:1.4; color:var(--text-tertiary); }
+.graphview-alert { flex:0 0 auto; margin:0; padding:var(--space-2) var(--space-3); overflow-wrap:anywhere; }
 
 /* ---- the graph name row -------------------------------------------------- */
 /* One 38px row under the panel header, with its own separator. Naming swaps

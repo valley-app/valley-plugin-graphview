@@ -34,7 +34,7 @@ function ensureStyles(): void {
   style.id = STYLE_ID
   style.textContent = `
 .graph-fence { position: relative; margin: 0.75em 0; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--container-color); overflow: hidden; }
-.graph-fence-inner { position: relative; width: 100%; height: 100%; }
+.graph-fence-inner { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; }
 .graph-fence-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); font-size: var(--small-font-size); }
 `
   document.head.appendChild(style)

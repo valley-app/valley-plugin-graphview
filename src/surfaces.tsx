@@ -169,7 +169,7 @@ export function GraphSearch(): React.ReactElement {
         if (matches.length) focus(matches[index < 0 ? (delta > 0 ? 0 : matches.length - 1) : (index + delta + matches.length) % matches.length])
       }
     }} />
-    {error ? <p role="alert">{uiText('graph.plugins.failed')} {error}</p> : null}
+    {error ? <p role="alert" className="graphview-hint graphview-alert">{uiText('graph.plugins.failed')} {error}</p> : null}
     <div className="graphview-search-results" aria-label={uiText('graph.find.results')}>
       {matches.map((id) => {
         const node = nodes.get(id)!

@@ -141,7 +141,7 @@ export const GlobalGraphTab = (): ReturnType<typeof React.createElement> => {
   return (
     <div className="graphview-panel graphview-panel-tab">
       <GraphTabHeader name={presets.active} />
-      {error && <p role="alert">{uiText('graph.plugins.failed')} {error}</p>}
+      {error && <p role="alert" className="graphview-hint graphview-alert">{uiText('graph.plugins.failed')} {error}</p>}
       <div className="graphview-stage">
         <GraphCanvas
           data={data}
