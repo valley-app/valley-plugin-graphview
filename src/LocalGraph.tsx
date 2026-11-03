@@ -82,6 +82,7 @@ export const LocalGraph = (): ReturnType<typeof React.createElement> => {
         data={data}
         config={config}
         centerId={activePath}
+        centerFit
         onOpen={onOpen}
         pins={pins}
         onTogglePin={togglePin}

@@ -100,7 +100,7 @@ const GraphFence: FC<{ code: string; path: string | null }> = ({ code, path }) =
   } else if (!visible) {
     body = <div className="graph-fence-empty">{uiText('auto.b60ca727a5e5')}</div>
   } else {
-    body = <GraphCanvas data={data} config={config} centerId={global ? undefined : centerId ?? undefined} onOpen={onOpen} />
+    body = <GraphCanvas data={data} config={config} centerId={global ? undefined : centerId ?? undefined} centerFit={!global} onOpen={onOpen} />
   }
 
   return (

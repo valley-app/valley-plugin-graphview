@@ -94,6 +94,7 @@ function createOwner(api: ValleyPluginApi, retired: Promise<void> | undefined, o
     subscribeDocuments(listener: () => void): () => void { documentListeners.add(listener); startDocuments(); return () => { documentListeners.delete(listener) } },
     onDispose(cleanup: () => void): () => void { if (active) cleanups.add(cleanup); else cleanup(); return () => { cleanups.delete(cleanup) } },
     subscribe: index.subscribe,
+    status: (): 'loading' | 'ready' | 'error' => index.getSnapshot().status,
     entries(): IndexEntry[] {
       const next = index.getSnapshot().entries
       if (source !== next) { source = next; entries = next.map(entry => ({ ...entry, title: entry.title ?? '', kind: entry.kind ?? 'other', mtimeMs: entry.mtimeMs ?? 0 })) }

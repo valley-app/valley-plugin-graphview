@@ -52,3 +52,18 @@ it('shows a plugin documents failure as a compact hint in the Graph tab and in P
   }
   offStyles()
 })
+
+it('waits for the index before saying that no nodes match the filters', async () => {
+  const mock = createMockValleyApi({ manifest: declared })
+  let release!: () => void
+  const observe = mock.api.index.observe.bind(mock.api.index)
+  vi.spyOn(mock.api.index, 'observe').mockImplementation(((...args: Parameters<typeof observe>) => new Promise((resolve) => { release = () => resolve(observe(...args)) })) as typeof observe)
+  initRuntime(mock.api)
+  const offStyles = injectStyles()
+  const { container } = render(React.createElement(GlobalGraphTab))
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+  expect(container.querySelector('.graphview-empty')).toBeNull()
+  await act(async () => { release(); await new Promise((resolve) => setTimeout(resolve, 0)) })
+  expect(container.querySelector('.graphview-empty')?.textContent).toBe('No nodes match the current filters.')
+  offStyles()
+})

@@ -4,7 +4,7 @@ import type { GraphPins } from './settings'
 import { readPaletteColor } from '@valley/plugin-sdk/palette'
 import { tick } from './forces'
 import { uiText } from './localization'
-import { getGraphIndex } from './indexOwner'
+import { getGraphIndex, type GraphIndex } from './indexOwner'
 
 const HOVER_FADE_MS = 150
 const FIT_ANIM_MS = 400
@@ -67,6 +67,8 @@ interface Props {
   /** Node the camera glides to whenever `focusRun` changes. */
   focusId?: string | null
   focusRun?: number
+  /** Fit around `centerId` (local neighbourhoods) instead of the whole graph's bounds. */
+  centerFit?: boolean
 }
 
 interface GraphAnimation {
@@ -79,6 +81,41 @@ interface GraphAnimation {
 // Sub-linear (sqrt) growth: hubs still read as hubs without uniform fat blobs.
 const radiusOf = (n: GraphNode, size: number): number =>
   (1.7 + Math.sqrt(Math.min(32, n.degree)) * 0.7) * size
+
+/** Said only once the index is current, so a graph still loading is never reported as filtered empty. */
+const EmptyHint = ({ owner }: { owner: GraphIndex }): ReturnType<typeof React.createElement> | null => {
+  const status = React.useSyncExternalStore(owner.subscribe, owner.status, owner.status)
+  return status === 'loading' ? null : React.createElement('div', { className: 'graphview-empty' }, uiText('auto.af410c618763'))
+}
+
+/**
+ * Camera that frames `nodes` with padding. With `centerId` present in the
+ * data, the camera keeps that node in the middle and frames the farthest
+ * neighbour on each axis, so a local graph re-centres on its active file.
+ */
+export function fitCamera(nodes: readonly GraphNode[], w: number, h: number, nodeSize: number, centerId?: string | null): { scale: number; x: number; y: number } | null {
+  if (nodes.length === 0 || w === 0 || h === 0) return null
+  const focus = centerId ? nodes.find((n) => n.id === centerId) : undefined
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const n of nodes) {
+    const r = radiusOf(n, nodeSize)
+    if (n.x - r < minX) minX = n.x - r
+    if (n.y - r < minY) minY = n.y - r
+    if (n.x + r > maxX) maxX = n.x + r
+    if (n.y + r > maxY) maxY = n.y + r
+  }
+  const cx = focus ? focus.x : (minX + maxX) / 2
+  const cy = focus ? focus.y : (minY + maxY) / 2
+  const pad = 24
+  const bw = Math.max(focus ? 2 * Math.max(cx - minX, maxX - cx) : maxX - minX, 1)
+  const bh = Math.max(focus ? 2 * Math.max(cy - minY, maxY - cy) : maxY - minY, 1)
+  const fitScale = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh)
+  const scale = clamp(fitScale * (focus ? 1 : 1.04), MIN_SCALE, MAX_SCALE)
+  return { scale, x: w / 2 - cx * scale, y: h / 2 - cy * scale }
+}
 
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3)
 
@@ -173,7 +210,8 @@ export const GraphCanvas = ({
   animationRun,
   highlightIds,
   focusId,
-  focusRun
+  focusRun,
+  centerFit
 }: Props): ReturnType<typeof React.createElement> => {
   const [owner] = React.useState(() => getGraphIndex(api))
   const [openError, setOpenError] = React.useState('')
@@ -194,6 +232,8 @@ export const GraphCanvas = ({
   const initialFitRef = React.useRef(true)
   const centerRef = React.useRef(centerId)
   centerRef.current = centerId
+  const centerFitRef = React.useRef(centerFit)
+  centerFitRef.current = centerFit
   const posRef = React.useRef<Map<string, { x: number; y: number; vx: number; vy: number }>>(new Map())
   const dataRef = React.useRef<GraphData>(data)
   const animationRef = React.useRef<GraphAnimation | null>(null)
@@ -457,32 +497,12 @@ export const GraphCanvas = ({
     ctx.globalAlpha = 1
   }, [visibleGraph, drawable])
 
-  /** Animate camera to frame all nodes (with padding). */
+  /** Animate camera to frame all nodes (with padding), or the centred node's neighbourhood around it. */
   const fitView = React.useCallback((animate: boolean, blend = 1): void => {
-    const graph = dataRef.current
     const { w, h } = sizeRef.current
-    if (graph.nodes.length === 0 || w === 0 || h === 0) return
-    const cfg = configRef.current
-    let minX = Infinity
-    let minY = Infinity
-    let maxX = -Infinity
-    let maxY = -Infinity
-    for (const n of graph.nodes) {
-      const r = radiusOf(n, cfg.display.nodeSize)
-      if (n.x - r < minX) minX = n.x - r
-      if (n.y - r < minY) minY = n.y - r
-      if (n.x + r > maxX) maxX = n.x + r
-      if (n.y + r > maxY) maxY = n.y + r
-    }
-    const pad = 24
-    const bw = Math.max(maxX - minX, 1)
-    const bh = Math.max(maxY - minY, 1)
-    const fitScale = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh)
-    const toScale = clamp(fitScale * 1.04, MIN_SCALE, MAX_SCALE)
-    const cx = (minX + maxX) / 2
-    const cy = (minY + maxY) / 2
-    const toX = w / 2 - cx * toScale
-    const toY = h / 2 - cy * toScale
+    const target = fitCamera(dataRef.current.nodes, w, h, configRef.current.display.nodeSize, centerFitRef.current ? centerRef.current : null)
+    if (!target) return
+    const { scale: toScale, x: toX, y: toY } = target
     const cam = cameraRef.current
     zoomTargetRef.current = null
     if (!animate) {
@@ -1029,8 +1049,6 @@ export const GraphCanvas = ({
       onContextMenu,
       style: { touchAction: 'none', cursor: 'grab', display: 'block' }
     }),
-    data.nodes.length === 0
-      ? h('div', { className: 'graphview-empty' }, uiText('auto.af410c618763'))
-      : null
+    data.nodes.length === 0 ? h(EmptyHint, { owner }) : null
   )
 }
