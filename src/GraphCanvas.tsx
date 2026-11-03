@@ -69,6 +69,8 @@ interface Props {
   focusRun?: number
   /** Fit around `centerId` (local neighbourhoods) instead of the whole graph's bounds. */
   centerFit?: boolean
+  /** Replaces the filtered-empty message when the owner knows why nothing is drawn. */
+  emptyText?: string
 }
 
 interface GraphAnimation {
@@ -83,9 +85,9 @@ const radiusOf = (n: GraphNode, size: number): number =>
   (1.7 + Math.sqrt(Math.min(32, n.degree)) * 0.7) * size
 
 /** Said only once the index is current, so a graph still loading is never reported as filtered empty. */
-const EmptyHint = ({ owner }: { owner: GraphIndex }): ReturnType<typeof React.createElement> | null => {
+const EmptyHint = ({ owner, text }: { owner: GraphIndex; text?: string }): ReturnType<typeof React.createElement> | null => {
   const status = React.useSyncExternalStore(owner.subscribe, owner.status, owner.status)
-  return status === 'loading' ? null : React.createElement('div', { className: 'graphview-empty' }, uiText('auto.af410c618763'))
+  return status === 'loading' ? null : React.createElement('div', { className: 'graphview-empty' }, text ?? uiText('auto.af410c618763'))
 }
 
 /**
@@ -211,7 +213,8 @@ export const GraphCanvas = ({
   highlightIds,
   focusId,
   focusRun,
-  centerFit
+  centerFit,
+  emptyText
 }: Props): ReturnType<typeof React.createElement> => {
   const [owner] = React.useState(() => getGraphIndex(api))
   const [openError, setOpenError] = React.useState('')
@@ -1049,6 +1052,6 @@ export const GraphCanvas = ({
       onContextMenu,
       style: { touchAction: 'none', cursor: 'grab', display: 'block' }
     }),
-    data.nodes.length === 0 ? h(EmptyHint, { owner }) : null
+    data.nodes.length === 0 ? h(EmptyHint, { owner, text: emptyText }) : null
   )
 }

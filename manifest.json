@@ -2,7 +2,7 @@
   "apiVersion": 5,
   "id": "graphView",
   "name": "Graph View",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "description": "Knowledge graph of the vault with filters, color groups, saved graphs, and a per-file local graph.",
   "author": [
     "valley"

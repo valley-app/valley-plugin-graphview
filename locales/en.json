@@ -118,5 +118,6 @@
   "graph.plugins.links": "Connects links in their notes and shows their tags when Tags is enabled.",
   "graph.plugins.linksWithFiles": "Connects each item to its source file and links in its notes. Shows its tags when Tags is enabled.",
   "bookmark.view": "Graph view",
-  "bookmark.item": "Selected item"
+  "bookmark.item": "Selected item",
+  "graph.local.notInGraph": "This file is not part of the graph."
 }

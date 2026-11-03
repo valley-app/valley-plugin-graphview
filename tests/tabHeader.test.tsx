@@ -736,6 +736,16 @@ describe('local graph sidebar', () => {
     expect(screen.getByRole('slider', { name: 'Depth' })).toHaveValue('10')
   })
 
+  it('says the active file is not part of the graph instead of blaming the filters', async () => {
+    const mock = setup()
+    mock.emitState({ activePath: 'Quiz/Mosses.quiz' })
+    const { container } = render(React.createElement(LocalGraph))
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+    await waitFor(() => expect(container.querySelector('.graphview-empty')?.textContent).toBe('This file is not part of the graph.'))
+    await act(async () => { mock.emitState({ activePath: FOCUS_PATH }); await new Promise((resolve) => setTimeout(resolve, 0)) })
+    expect(container.querySelector('.graphview-empty')).toBeNull()
+  })
+
   it('keeps both local header rows visible when no file is active', async () => {
     setup()
     const { container } = render(React.createElement(LocalGraph))

@@ -118,5 +118,6 @@
   "graph.plugins.links": "Conecta los enlaces de sus notas y muestra sus etiquetas cuando Etiquetas está activado.",
   "graph.plugins.linksWithFiles": "Conecta cada elemento con su archivo de origen y los enlaces de sus notas. Muestra sus etiquetas cuando Etiquetas está activado.",
   "bookmark.view": "Vista del grafo",
-  "bookmark.item": "Elemento seleccionado"
+  "bookmark.item": "Elemento seleccionado",
+  "graph.local.notInGraph": "Este archivo no forma parte del gráfico."
 }

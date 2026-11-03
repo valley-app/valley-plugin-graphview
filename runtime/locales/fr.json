@@ -118,5 +118,6 @@
   "graph.plugins.links": "Relie les liens de leurs notes et affiche leurs tags lorsque Tags est activé.",
   "graph.plugins.linksWithFiles": "Relie chaque élément à son fichier source et aux liens de ses notes. Affiche ses tags lorsque Tags est activé.",
   "bookmark.view": "Vue du graphe",
-  "bookmark.item": "Élément sélectionné"
+  "bookmark.item": "Élément sélectionné",
+  "graph.local.notInGraph": "Ce fichier ne fait pas partie du graphique."
 }

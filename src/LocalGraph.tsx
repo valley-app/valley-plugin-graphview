@@ -83,6 +83,7 @@ export const LocalGraph = (): ReturnType<typeof React.createElement> => {
         config={config}
         centerId={activePath}
         centerFit
+        emptyText={full.nodes.some((node) => node.id === activePath) ? undefined : uiText('graph.local.notInGraph')}
         onOpen={onOpen}
         pins={pins}
         onTogglePin={togglePin}

@@ -118,5 +118,6 @@
   "graph.plugins.links": "Verbindet Links aus den Notizen und zeigt ihre Tags, wenn Tags aktiviert sind.",
   "graph.plugins.linksWithFiles": "Verbindet jeden Eintrag mit seiner Quelldatei und den Links in seinen Notizen. Zeigt seine Tags, wenn Tags aktiviert sind.",
   "bookmark.view": "Graphansicht",
-  "bookmark.item": "Ausgewählter Eintrag"
+  "bookmark.item": "Ausgewählter Eintrag",
+  "graph.local.notInGraph": "Diese Datei ist nicht Teil des Graphen."
 }

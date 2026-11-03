@@ -118,5 +118,6 @@
   "graph.plugins.links": "连接笔记中的链接，并在启用标签时显示其标签。",
   "graph.plugins.linksWithFiles": "将每个条目连接到其源文件及笔记中的链接，并在启用标签时显示其标签。",
   "bookmark.view": "图谱视图",
-  "bookmark.item": "所选项目"
+  "bookmark.item": "所选项目",
+  "graph.local.notInGraph": "此文件不属于图谱。"
 }
