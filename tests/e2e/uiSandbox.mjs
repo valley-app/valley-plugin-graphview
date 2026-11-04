@@ -6,7 +6,7 @@ import path from 'node:path'
 // GRAPHVIEW_JS_REFERENCE names the frozen JavaScript reference tick, of that run too), then the real canvas'
 // frame time (tick + position sync + draw) while it settles and while a node is dragged. The frame compiles the
 // committed runtime/assets/layout.wasm bytes itself; the app's sandbox fixture serves no /wasm/ route.
-// GRAPHVIEW_BENCH selects the phases (ticks: kernel, jsticks: the frozen reference, settle, drag; one harness run
+// GRAPHVIEW_BENCH selects the phases (ticks: kernel, jsticks: the frozen reference, settle, drag, shots; one harness run
 // each fits the app harness' 25 s limit; the ticks digests of both engines must match). GRAPHVIEW_BENCH_OUT writes
 // the report; GRAPHVIEW_BENCH_ASSERT=1 gates p95 frame time <= 16.7 ms (the >= 3x per-tick bar compares two
 // reports). Without GRAPHVIEW_BENCH only the small graph runs, on the kernel.
@@ -131,6 +131,8 @@ export default async function () {
         report.bench.kernelMoved=await benchFrame.executeJavaScript('window.benchGraph.nodes.some(n=>!Number.isFinite(n.x))?"nan":window.benchGraph.nodes.slice(0,50).some(n=>Math.hypot(n.x,n.y)>420)');
         report.bench.alert=await benchFrame.executeJavaScript('document.querySelector("#bench-root [role=alert]")?.textContent??null');
       }
+      // shots: screenshots of the host window while the 20k graph settles (GRAPHVIEW_BENCH_SHOTS names the folder).
+      if(phases.includes('shots')){await benchFrame.executeJavaScript('window.graphBench.mount();undefined');report.bench.shots=[];for(const at of [300,2500,6000,12000]){await wait(at-(report.bench.shots.at(-1)?.at??0));const image=await win.webContents.capturePage();const file=${JSON.stringify(process.env.GRAPHVIEW_BENCH_SHOTS ?? '')}+'/settle-'+at+'ms.png';if(${JSON.stringify(Boolean(process.env.GRAPHVIEW_BENCH_SHOTS))})fs.writeFileSync(file,image.toPNG());report.bench.shots.push({at,file,frames:await benchFrame.executeJavaScript('window.benchFrames.length')})}}
       // The drag starts 1.5 s after mounting, while the layout is still settling: one tick per frame either way.
       if(phases.includes('drag')){await benchFrame.executeJavaScript('window.graphBench.mount();undefined');await wait(1500);report.bench.drag=await benchFrame.executeJavaScript('window.graphBench.drag()')}
       }
