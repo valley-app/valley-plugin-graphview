@@ -1,0 +1,46 @@
+{
+  "ticks": 200,
+  "source": "JavaScript SoA reference tick (src/forces.ts layoutTick), frozen before its deletion",
+  "goldens": {
+    "ring-300": {
+      "nodes": 300,
+      "alpha": "e6c6e61d9302923f",
+      "checkpoints": {
+        "1": "0e4040a0bacb29e6446c829082675a50873b8949240bc8d7a05b04f3025f23af",
+        "50": "e9eadc6275c0868b85edc45cf808b999064ae77f9261a4bbf48aae6be63d811a",
+        "100": "1098c69c013a7b9562a58a25820a979dc8ee8045daae6880271128ca977f9297",
+        "200": "62d6b53d7cc4e7c95001635e20405f90d4329c136899f03d42fdc781152dedba"
+      }
+    },
+    "coincident-60": {
+      "nodes": 60,
+      "alpha": "e6c6e61d9302923f",
+      "checkpoints": {
+        "1": "a1142244385423586eae9c29c441717b9b78dd5f06296b3aa74e2126dd27a717",
+        "50": "681a8b61f5f00abeb2a7850b5588b5000c39425b6b6760d40ed3b9b48e5fad8b",
+        "100": "e02fa847b3d6ba7f7f5c4d5e8531eae52129fa91bedaaefe545b1286b71bae44",
+        "200": "2ef5ebda4d22010e8be9849b107859a09e59a034279fd96d8371dc8d67db2606"
+      }
+    },
+    "pinned-chain-50": {
+      "nodes": 50,
+      "alpha": "e6c6e61d9302923f",
+      "checkpoints": {
+        "1": "fb51e4bed49a314f276ff024de416380643adaf476d70a58da436568e7663921",
+        "50": "3f1eaed159c07245db7fd97ffc8a9af494db05db2d01242dc5c1ee3b342036d6",
+        "100": "f0d47b42652ca2c2004c9e1f33c0cf241e535e5f2a7db6120cd5372f8ed4c6bc",
+        "200": "bb443ee267a5b70f9e10c5a7f70b9aa16e66e452eedb6e02cb59ed3147cbd64c"
+      }
+    },
+    "random-2000": {
+      "nodes": 2000,
+      "alpha": "e6c6e61d9302923f",
+      "checkpoints": {
+        "1": "e395f600e45f947a8432c83ddc22ba65bef34d5f50e3b587de7978545b46450a",
+        "50": "4de2cfa6b062f5fdbfdcd392308ff90ea7144d9ce3418a123d23922ecc9f2c26",
+        "100": "6a261643550e139b3e437104881924b3ea89fd9202bffebe2b33daaeac1ff825",
+        "200": "aa36b65c01621586710e2e667af2c4abd94ac0081db419d4a6e0aa1721f98841"
+      }
+    }
+  }
+}
