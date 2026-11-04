@@ -20,6 +20,7 @@ Valley ships this core plugin as a verified release artifact in its application 
 - `manifest.json`: readable English identity, version, and paired `author` / `authorUrl` arrays.
 - `config.json`: runtime entry points, permissions, contributions, and storage declarations.
 - `src/`: plugin interface.
+- `src/wasm/`: the force-layout kernel in Rust (built to `runtime/assets/layout.wasm`, declared in `config.json` under `runtime.wasm`).
 - `locales/`: English, German, Spanish, French, and Simplified Chinese catalogs.
 - `tests/`: package-owned checks using the portable SDK testkit.
 - `runtime/`: compiled installation artifact, including the package’s locale catalogs.
@@ -29,14 +30,14 @@ The package’s `manifest.name` and `manifest.description` catalog entries trans
 
 ## Development and releases
 
-Use Node 24.19.0 and npm 11.17.0. From this repository, run:
+Use Node 24.19.0 and npm 11.17.0, and Rust from `rustup` (the toolchain pinned in `rust-toolchain.toml`) with binaryen's `wasm-opt` at the version plugin-tools names. From this repository, run:
 
 ```sh
 npm ci
 npm run check
 ```
 
-The check validates types and package boundaries, runs the package tests, and rebuilds `runtime/`. It requires no Valley source checkout. Keep the rebuilt runtime, locale files, dependency lock, and vendored tools with each release. Increment the package and manifest versions together.
+The check validates types and package boundaries, builds the layout kernel twice (the bytes must match each other and the `sha256` in `config.json`), runs the package tests, including the 200-tick layout goldens in `tests/fixtures/layout-goldens.json`, and rebuilds `runtime/`. After a kernel change, commit the digest the build reports. It requires no Valley source checkout. Keep the rebuilt runtime, locale files, dependency lock, and vendored tools with each release. Increment the package and manifest versions together.
 
 Valley release maintainers explicitly import the compiled artifact into the application’s `plugins.lock.json`; building Valley does not build or read this repository. All privileged work uses declared SDK capabilities, authenticated IPC, and explicit grants. Disabling or unloading the plugin releases its subscriptions and resources.
 

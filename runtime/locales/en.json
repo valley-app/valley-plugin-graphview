@@ -119,5 +119,6 @@
   "graph.plugins.linksWithFiles": "Connects each item to its source file and links in its notes. Shows its tags when Tags is enabled.",
   "bookmark.view": "Graph view",
   "bookmark.item": "Selected item",
-  "graph.local.notInGraph": "This file is not part of the graph."
+  "graph.local.notInGraph": "This file is not part of the graph.",
+  "graph.layoutUnavailable": "The graph layout could not start, so nodes stay where they are. Reload Graph View to try again."
 }
