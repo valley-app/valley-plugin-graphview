@@ -1,16 +1,42 @@
 import * as React from 'react'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMockValleyApi } from '@valley/plugin-testkit'
-import { tick } from '../src/forces'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { createMockValleyApi, loadPackageWasm, type PackageWasmModule } from '@valley/plugin-testkit'
+import { layoutKernelFor, type LayoutKernel } from '../src/layout'
 import { GraphCanvas, graphAnimationOrder, graphAnimationSlice, graphEdgeAlphas, graphForcesChanged, graphLabelAlpha, graphNodeColor, graphTopologyChanged, selectVisibleLabels } from '../src/GraphCanvas'
-import { buildQuadtree, applyRepulsion } from '../src/quadtree'
 import type { ForceState, GraphData, GraphNode } from '../src/types'
 import { initRuntime } from '../src/runtime'
 import { DEFAULT_CONFIG } from '../src/settings'
 import { getGraphIndex } from '../src/indexOwner'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+
+let layoutModule: PackageWasmModule
+let shared: ReturnType<typeof createMockValleyApi>
+let kernel: LayoutKernel
+
+/** A mock API whose frame `api.wasm` serves the committed layout module, with the kernel already instantiated. */
+async function graphApi(): Promise<ReturnType<typeof createMockValleyApi>> {
+  const mock = createMockValleyApi({ manifest: { id: 'graphView' }, wasm: { modules: [layoutModule] } })
+  await layoutKernelFor(mock.api).pending
+  return mock
+}
+
+beforeAll(async () => {
+  layoutModule = await loadPackageWasm(process.cwd(), 'layout')
+  shared = await graphApi()
+  kernel = await layoutKernelFor(shared.api).pending
+})
+
+/** Ticks a graph in its own kernel layout and syncs the positions back onto the node objects after every tick. */
+function tick(graph: GraphData, forces: ForceState, alpha: number, pinnedId?: string): number {
+  const layout = kernel.create()
+  layout.load(graph)
+  const next = layout.tick(forces, alpha, pinnedId ? graph.nodes.findIndex((value) => value.id === pinnedId) : -1)
+  layout.read(graph.nodes)
+  layout.dispose()
+  return next
+}
 
 const FORCES: ForceState = { center: 1, repel: 1, link: 1, linkDistance: 75 }
 
@@ -20,36 +46,36 @@ function node(id: string, x: number, y: number): GraphNode {
 
 const dist = (a: GraphNode, b: GraphNode): number => Math.hypot(a.x - b.x, a.y - b.y)
 
-describe('quadtree repulsion', () => {
+describe('kernel repulsion', () => {
+  const REPEL: ForceState = { center: 0, repel: 1, link: 0, linkDistance: 75 }
+
   it('pushes nearby nodes apart', () => {
     const a = node('a', 0, 0)
     const b = node('b', 4, 0)
-    const tree = buildQuadtree([a, b])
-    applyRepulsion(tree, a, 100)
-    applyRepulsion(tree, b, 100)
+    tick({ nodes: [a, b], edges: [] }, REPEL, 1)
     expect(a.vx).toBeLessThan(0)
     expect(b.vx).toBeGreaterThan(0)
   })
 
   it('handles coincident nodes without NaN', () => {
     const nodes = [node('a', 5, 5), node('b', 5, 5), node('c', 5, 5)]
-    const tree = buildQuadtree(nodes)
-    for (const n of nodes) applyRepulsion(tree, n, 100)
+    tick({ nodes, edges: [] }, REPEL, 1)
     for (const n of nodes) {
       expect(Number.isFinite(n.vx)).toBe(true)
       expect(Number.isFinite(n.vy)).toBe(true)
+      expect(Number.isFinite(n.x)).toBe(true)
     }
+    expect(new Set(nodes.map((n) => `${n.x},${n.y}`)).size).toBe(3)
   })
 
   it('approximates the pairwise force for a far cluster', () => {
     // A tight far-away cluster of 10 should repel roughly like one body of mass 10.
     const probe = node('p', 0, 0)
     const cluster = Array.from({ length: 10 }, (_, i) => node(`c${i}`, 1000 + (i % 3), 1000 + Math.floor(i / 3)))
-    const tree = buildQuadtree([probe, ...cluster])
-    applyRepulsion(tree, probe, 1)
+    tick({ nodes: [probe, ...cluster], edges: [] }, REPEL, 1)
     const d2 = 1000 * 1000 * 2
-    const expected = 10 / d2
-    const got = Math.hypot(probe.vx, probe.vy)
+    const expected = (2500 * 10) / d2
+    const got = Math.hypot(probe.vx, probe.vy) / 0.82
     expect(got).toBeGreaterThan(expected * 0.8)
     expect(got).toBeLessThan(expected * 1.2)
   })
@@ -85,7 +111,7 @@ describe('graph labels', () => {
 })
 
 function cameraHarness(data: GraphData) {
-  initRuntime(createMockValleyApi({ manifest: { id: 'graphView' } }).api)
+  initRuntime(shared.api)
   let now = 0
   let sequence = 0
   let width = 800
@@ -213,7 +239,7 @@ describe('smooth graph camera', () => {
 
 describe('graph visual hierarchy', () => {
   it('suspends offscreen, hidden and zero-size simulation and resumes the same layout until disposal', async () => {
-    const mock = createMockValleyApi({ manifest: { id: 'graphView' } })
+    const mock = await graphApi()
     initRuntime(mock.api)
     let intersect!: (value: boolean) => void
     let resize!: () => void
@@ -274,7 +300,7 @@ describe('graph visual hierarchy', () => {
   })
 
   it('stops idle frames, redraws metadata without moving nodes, reheats rewired edges, and cancels on unmount', () => {
-    initRuntime(createMockValleyApi({ manifest: { id: 'graphView' } }).api)
+    initRuntime(shared.api)
     let now = 0
     let sequence = 0
     const frames = new Map<number, FrameRequestCallback>()
@@ -375,6 +401,60 @@ describe('graph visual hierarchy', () => {
   })
 })
 
+describe('layout kernel in the canvas', () => {
+  function frameHarness(mock: ReturnType<typeof createMockValleyApi>, data: GraphData) {
+    initRuntime(mock.api)
+    let now = 0
+    let sequence = 0
+    const frames = new Map<number, FrameRequestCallback>()
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++sequence, callback); return sequence })
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames.delete(id) })
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ x: 0, y: 0, width: 800, height: 600, top: 0, left: 0, bottom: 600, right: 800, toJSON: () => ({}) })
+    const mounted = render(React.createElement(GraphCanvas, { data, config: DEFAULT_CONFIG, onOpen: () => {} }))
+    return {
+      frames,
+      mounted,
+      step() {
+        now += 16
+        const pending = [...frames.values()]
+        frames.clear()
+        act(() => { for (const frame of pending) frame(now) })
+      }
+    }
+  }
+
+  it('runs one kernel tick per frame and syncs the positions back onto the nodes', () => {
+    const graph = (): GraphData => ({ nodes: [node('a', -100, 0), node('b', 100, 0), node('c', 0, 100), node('d', 3, 3)], edges: [{ source: 'a', target: 'b' }, { source: 'c', target: 'd' }] })
+    const shown = graph()
+    const view = frameHarness(shared, shown)
+    for (let i = 0; i < 5; i++) view.step()
+    const reference = graph()
+    const layout = kernel.create()
+    layout.load(reference)
+    let alpha = 1
+    for (let i = 0; i < 5; i++) alpha = layout.tick(DEFAULT_CONFIG.forces, alpha, -1)
+    layout.read(reference.nodes)
+    layout.dispose()
+    expect(shown.nodes.map((n) => [n.x, n.y, n.vx, n.vy])).toEqual(reference.nodes.map((n) => [n.x, n.y, n.vx, n.vy]))
+    view.mounted.unmount()
+  })
+
+  it('keeps the graph still and shows a localized alert when the layout module cannot load', async () => {
+    const broken = createMockValleyApi({ manifest: { id: 'graphView' } })
+    await expect(layoutKernelFor(broken.api).pending).rejects.toThrow()
+    const data: GraphData = { nodes: [node('a', -100, 0), node('b', 100, 0)], edges: [{ source: 'a', target: 'b' }] }
+    const view = frameHarness(broken, data)
+    await act(async () => { await Promise.resolve() })
+    for (let i = 0; view.frames.size && i < 20; i++) view.step()
+    expect(data.nodes.map((n) => [n.x, n.y])).toEqual([[-100, 0], [100, 0]])
+    expect(view.mounted.getByRole('alert').textContent).toBe('The graph layout could not start, so nodes stay where they are. Reload Graph View to try again.')
+    view.mounted.unmount()
+  })
+})
+
 describe('tick', () => {
   it('separates overlapping nodes and stays finite on a few hundred nodes', () => {
     const nodes = Array.from({ length: 300 }, (_, i) =>
@@ -430,5 +510,11 @@ describe('tick', () => {
 
   it('returns 0 for an empty graph', () => {
     expect(tick({ nodes: [], edges: [] }, FORCES, 1)).toBe(0)
+  })
+
+  it('refuses a layout above the kernel bounds instead of aborting the module', () => {
+    const layout = kernel.create()
+    expect(() => layout.load({ nodes: Array.from({ length: 250_001 }, (_, i) => node(`n${i}`, i, 0)), edges: [] })).toThrow('exceeds the kernel bounds')
+    layout.dispose()
   })
 })
