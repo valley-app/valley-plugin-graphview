@@ -119,5 +119,6 @@
   "graph.plugins.linksWithFiles": "Conecta cada elemento con su archivo de origen y los enlaces de sus notas. Muestra sus etiquetas cuando Etiquetas está activado.",
   "bookmark.view": "Vista del grafo",
   "bookmark.item": "Elemento seleccionado",
-  "graph.local.notInGraph": "Este archivo no forma parte del gráfico."
+  "graph.local.notInGraph": "Este archivo no forma parte del gráfico.",
+  "graph.layoutUnavailable": "No se pudo iniciar la disposición del grafo, así que los nodos se quedan donde están. Recarga Vista de grafo para intentarlo de nuevo."
 }

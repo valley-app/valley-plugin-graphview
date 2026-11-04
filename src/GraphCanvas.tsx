@@ -2,7 +2,7 @@ import { React, api } from './runtime'
 import type { ForceState, GraphConfig, GraphData, GraphNode } from './types'
 import type { GraphPins } from './settings'
 import { readPaletteColor } from '@valley/plugin-sdk/palette'
-import { tick } from './forces'
+import { layoutKernelFor, type LayoutHandle } from './layout'
 import { uiText } from './localization'
 import { getGraphIndex, type GraphIndex } from './indexOwner'
 
@@ -198,7 +198,8 @@ export function selectVisibleLabels(candidates: LabelCandidate[], limit: number)
 /**
  * Canvas force-graph: pan (drag bg), zoom (wheel), drag nodes, click
  * to open, animated hover highlighting, optional link arrows, zoom-to-fit.
- * Rendering is O(nodes + edges) per frame; ecology is Barnes-Hut.
+ * Rendering is O(nodes + edges) per frame; the layout is one tick per frame of
+ * the WebAssembly kernel (Barnes-Hut), synced back onto the node objects.
  */
 export const GraphCanvas = ({
   data,
@@ -218,6 +219,7 @@ export const GraphCanvas = ({
 }: Props): ReturnType<typeof React.createElement> => {
   const [owner] = React.useState(() => getGraphIndex(api))
   const [openError, setOpenError] = React.useState('')
+  const [layoutError, setLayoutError] = React.useState('')
   const openNode = (node: GraphNode, newTab?: boolean): void => {
     try { owner.assertCurrent() } catch { return }
     setOpenError('')
@@ -241,6 +243,9 @@ export const GraphCanvas = ({
   const dataRef = React.useRef<GraphData>(data)
   const animationRef = React.useRef<GraphAnimation | null>(null)
   const alphaRef = React.useRef(1)
+  const layoutRef = React.useRef<LayoutHandle | null>(null)
+  const layoutFailedRef = React.useRef(false)
+  const loadedGraphRef = React.useRef<{ nodes: GraphNode[]; edges: GraphData['edges'] } | null>(null)
   const rafRef = React.useRef<number | null>(null)
   const frameViewRef = React.useRef<Window | null>(null)
   const lastTimeRef = React.useRef(0)
@@ -600,15 +605,19 @@ export const GraphCanvas = ({
         if (hover.t !== target) again = true
       }
 
-      // Ecology.
-      if (alphaRef.current > 0.02) {
+      // Ecology: one kernel tick per frame on the SoA buffers, synced both ways.
+      const layout = layoutRef.current
+      const simulating = alphaRef.current > 0.02
+      if (simulating && layout) {
         const graph = visibleGraph()
-        alphaRef.current = tick(
-          graph,
-          configRef.current.forces,
-          alphaRef.current,
-          dragRef.current?.id ?? null
-        )
+        const loaded = loadedGraphRef.current
+        if (!loaded || loaded.nodes !== graph.nodes || loaded.edges !== graph.edges) {
+          layout.load(graph)
+          loadedGraphRef.current = { nodes: graph.nodes, edges: graph.edges }
+        } else layout.write(graph.nodes)
+        const dragId = dragRef.current?.id
+        alphaRef.current = layout.tick(configRef.current.forces, alphaRef.current, dragId ? graph.nodes.findIndex((n) => n.id === dragId) : -1)
+        layout.read(graph.nodes)
         // sync positions back into the persistent store
         for (const n of graph.nodes) {
           posRef.current.set(n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy })
@@ -619,7 +628,7 @@ export const GraphCanvas = ({
           pendingFitRef.current = false
           fitView(true)
         }
-      } else if (pendingFitRef.current) {
+      } else if (pendingFitRef.current && (!simulating || layoutFailedRef.current)) {
         pendingFitRef.current = false
         fitView(true)
         again = true
@@ -631,6 +640,37 @@ export const GraphCanvas = ({
     }
     rafRef.current = view.requestAnimationFrame(loop)
   }, [draw, fitView, visibleGraph, drawable, stopRunning])
+
+  // The layout kernel: one shared instance per plugin API, one layout per canvas.
+  React.useEffect(() => {
+    let live = true
+    const entry = layoutKernelFor(api)
+    const attach = (kernel: NonNullable<typeof entry.kernel>): void => {
+      if (!live) return
+      try {
+        layoutRef.current = kernel.create()
+      } catch {
+        fail()
+        return
+      }
+      ensureRunning()
+    }
+    const fail = (): void => {
+      if (!live) return
+      layoutFailedRef.current = true
+      setLayoutError(uiText('graph.layoutUnavailable'))
+      ensureRunning()
+    }
+    if (entry.kernel) attach(entry.kernel)
+    else if (entry.failed !== undefined) fail()
+    else entry.pending.then(attach, fail)
+    return () => {
+      live = false
+      layoutRef.current?.dispose()
+      layoutRef.current = null
+      loadedGraphRef.current = null
+    }
+  }, [ensureRunning])
 
   const kick = React.useCallback((): void => {
     alphaRef.current = Math.max(alphaRef.current, 0.6)
@@ -1042,6 +1082,7 @@ export const GraphCanvas = ({
     'div',
     { ref: wrapRef, className: 'graphview-canvas-wrap' },
     openError ? h('p', { role: 'alert', className: 'graphview-open-error' }, openError) : null,
+    layoutError ? h('p', { role: 'alert', className: 'graphview-open-error' }, layoutError) : null,
     h('canvas', {
       ref: canvasRef,
       className: 'graphview-canvas',

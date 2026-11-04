@@ -803,7 +803,7 @@ it('lists registered empty sources in Graph settings and shares switches with th
     { id: 'fieldwork', name: 'Fieldwork', version: '1.2.3', author: ['Ada'], nodeTypes: ['Field notes', 'Observations'], linksSourceFiles: true },
     { id: 'observations', name: 'Observations', version: '2.0.0', author: [], nodeTypes: ['Observations'], linksSourceFiles: false },
     { id: 'unregistered', name: 'Not a graph source', version: '1.0.0', author: [], nodeTypes: [], linksSourceFiles: false }
-  ])
+  ] as never)
   const configure = vi.spyOn(mock.api.workspace, 'openSettings')
   const { container } = render(React.createElement(GraphSourceSettings))
   await waitFor(() => expect(screen.getAllByRole('switch')).toHaveLength(2))

@@ -119,5 +119,6 @@
   "graph.plugins.linksWithFiles": "Verbindet jeden Eintrag mit seiner Quelldatei und den Links in seinen Notizen. Zeigt seine Tags, wenn Tags aktiviert sind.",
   "bookmark.view": "Graphansicht",
   "bookmark.item": "Ausgewählter Eintrag",
-  "graph.local.notInGraph": "Diese Datei ist nicht Teil des Graphen."
+  "graph.local.notInGraph": "Diese Datei ist nicht Teil des Graphen.",
+  "graph.layoutUnavailable": "Das Graph-Layout konnte nicht starten, deshalb bleiben die Knoten, wo sie sind. Lade Graphansicht neu, um es erneut zu versuchen."
 }

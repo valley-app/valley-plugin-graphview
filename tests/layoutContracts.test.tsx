@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { createMockValleyApi } from '@valley/plugin-testkit'
+import { createMockValleyApi, loadPackageWasm } from '@valley/plugin-testkit'
 import type { ValleyPluginManifest } from '@valley/plugin-sdk/types'
 import manifest from '../manifest.json'
 import config from '../config.json'
@@ -36,7 +36,7 @@ it('lets the graph code block canvas fill the block height', () => {
 })
 
 it('shows a plugin documents failure as a compact hint in the Graph tab and in Properties Search', async () => {
-  const mock = createMockValleyApi({ manifest: declared, indexEntries: [{ relPath: 'Fern Canopy.md', title: 'Fern Canopy', kind: 'note', mtimeMs: 0, frontmatter: {} }] })
+  const mock = createMockValleyApi({ manifest: declared, wasm: { modules: [await loadPackageWasm(process.cwd(), 'layout')] }, indexEntries: [{ relPath: 'Fern Canopy.md', title: 'Fern Canopy', kind: 'note', mtimeMs: 0, frontmatter: {} }] })
   vi.spyOn(mock.api.documents, 'query').mockRejectedValue(new Error('Plugin UI request timed out (method=api.call timeoutMs=30000)'))
   initRuntime(mock.api)
   const offStyles = injectStyles()
