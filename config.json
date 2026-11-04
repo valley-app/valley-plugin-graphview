@@ -1,6 +1,7 @@
 {
   "icon": "icon.svg",
   "main": "runtime/index.js",
+  "assets": "runtime/assets",
   "indexState": "scoped",
   "noteDocumentAccess": "metadata",
   "uiSlots": {
@@ -308,6 +309,31 @@
     ],
     "largeDataOperations": [
       "workflow.execute"
+    ],
+    "wasm": [
+      {
+        "id": "layout",
+        "path": "runtime/assets/layout.wasm",
+        "sha256": "ed4d65597d401975677ffe9d779baec9b014349da2d018edb6abeff5241b3c54",
+        "target": "ui",
+        "memoryPagesMax": 512,
+        "exports": [
+          "layout_create",
+          "layout_select",
+          "layout_destroy",
+          "layout_resize",
+          "layout_x",
+          "layout_y",
+          "layout_vx",
+          "layout_vy",
+          "layout_pinned",
+          "layout_offsets",
+          "layout_targets",
+          "layout_forces",
+          "layout_seed",
+          "layout_tick"
+        ]
+      }
     ]
   },
   "settingsView": "graphView.settings",
