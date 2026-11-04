@@ -52,7 +52,7 @@ export interface LayoutKernel {
 }
 
 export class LayoutKernelError extends Error {
-  constructor(message: string, readonly cause?: unknown) {
+  constructor(message: string) {
     super(message)
     this.name = 'LayoutKernelError'
   }

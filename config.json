@@ -314,7 +314,7 @@
       {
         "id": "layout",
         "path": "runtime/assets/layout.wasm",
-        "sha256": "ed4d65597d401975677ffe9d779baec9b014349da2d018edb6abeff5241b3c54",
+        "sha256": "2976b17e6d9a0e20b2d76bfdf5155ab80c2cd0958a17cebe570dbe12fa3cfe8d",
         "target": "ui",
         "memoryPagesMax": 512,
         "exports": [

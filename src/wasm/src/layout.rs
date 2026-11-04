@@ -13,54 +13,76 @@ const NONE: u32 = u32::MAX;
 pub const MAX_NODES: u32 = 250_000;
 pub const MAX_EDGES: u32 = 1_000_000;
 
+/// One Barnes-Hut cell, laid out together so a traversal step touches one cache line.
+#[derive(Clone, Copy)]
+struct Cell {
+    x0: f64,
+    y0: f64,
+    size: f64,
+    /// `size * size`, the same product the reference computes per visit.
+    size2: f64,
+    mass: f64,
+    cx: f64,
+    cy: f64,
+    body: u32,
+    bucket: u32,
+    children: [u32; 4],
+    split: bool,
+}
+
 #[derive(Default)]
 struct Tree {
-    x0: Vec<f64>,
-    y0: Vec<f64>,
-    size: Vec<f64>,
-    mass: Vec<f64>,
-    cx: Vec<f64>,
-    cy: Vec<f64>,
-    body: Vec<u32>,
-    children: Vec<u32>,
-    bucket: Vec<u32>,
-    split: Vec<bool>,
+    cells: Vec<Cell>,
     next: Vec<u32>,
+    scratch: Vec<Cell>,
+    remap: Vec<u32>,
+    order: Vec<u32>,
 }
 
 impl Tree {
     fn clear(&mut self, n: usize) {
-        self.x0.clear();
-        self.y0.clear();
-        self.size.clear();
-        self.mass.clear();
-        self.cx.clear();
-        self.cy.clear();
-        self.body.clear();
-        self.children.clear();
-        self.bucket.clear();
-        self.split.clear();
+        self.cells.clear();
         self.next.clear();
         self.next.resize(n, NONE);
     }
 
     fn cell(&mut self, x0: f64, y0: f64, size: f64) -> u32 {
-        let id = u32::try_from(self.size.len()).unwrap_or(NONE);
-        self.x0.push(x0);
-        self.y0.push(y0);
-        self.size.push(size);
-        self.mass.push(0.0);
-        self.cx.push(0.0);
-        self.cy.push(0.0);
-        self.body.push(NONE);
-        self.children.extend_from_slice(&[NONE; 4]);
-        self.bucket.push(NONE);
-        self.split.push(false);
+        let id = u32::try_from(self.cells.len()).unwrap_or(NONE);
+        self.cells.push(Cell { x0, y0, size, size2: size * size, mass: 0.0, cx: 0.0, cy: 0.0, body: NONE, bucket: NONE, children: [NONE; 4], split: false });
         id
     }
 
-    fn in_bucket(&self, cell: usize, node: u32) -> bool {
-        let mut i = self.bucket[cell];
+    /// Renumbers the cells in the order a full traversal pops them (children pushed 0..3, popped 3..0), so a
+    /// repulsion pass walks memory forward. Only storage moves; every cell keeps its values and children.
+    fn renumber(&mut self) {
+        let count = self.cells.len();
+        self.remap.clear();
+        self.remap.resize(count, NONE);
+        self.scratch.clear();
+        self.order.clear();
+        self.order.push(0);
+        while let Some(cell) = self.order.pop() {
+            self.remap[cell as usize] = u32::try_from(self.scratch.len()).unwrap_or(NONE);
+            let entry = self.cells[cell as usize];
+            self.scratch.push(entry);
+            for &child in &entry.children {
+                if child != NONE {
+                    self.order.push(child);
+                }
+            }
+        }
+        for entry in &mut self.scratch {
+            for child in &mut entry.children {
+                if *child != NONE {
+                    *child = self.remap[*child as usize];
+                }
+            }
+        }
+        std::mem::swap(&mut self.cells, &mut self.scratch);
+    }
+
+    fn in_bucket(&self, cell: &Cell, node: u32) -> bool {
+        let mut i = cell.bucket;
         while i != NONE {
             if i == node {
                 return true;
@@ -119,51 +141,55 @@ impl Layout {
 
     fn insert(&mut self, cell: u32, node: u32, depth: u32) {
         let c = cell as usize;
+        let (nx, ny) = (self.x[node as usize], self.y[node as usize]);
         let t = &mut self.tree;
-        if t.mass[c] == 0.0 && t.body[c] == NONE && !t.split[c] {
-            t.body[c] = node;
-            t.mass[c] = 1.0;
-            t.cx[c] = self.x[node as usize];
-            t.cy[c] = self.y[node as usize];
+        let entry = &mut t.cells[c];
+        if entry.mass == 0.0 && entry.body == NONE && !entry.split {
+            entry.body = node;
+            entry.mass = 1.0;
+            entry.cx = nx;
+            entry.cy = ny;
             return;
         }
         if depth >= MAX_DEPTH {
-            t.next[node as usize] = t.bucket[c];
-            t.bucket[c] = node;
-            t.mass[c] += 1.0;
+            t.next[node as usize] = entry.bucket;
+            entry.bucket = node;
+            entry.mass += 1.0;
             return;
         }
-        if !t.split[c] {
-            t.split[c] = true;
-            let prev = t.body[c];
-            t.body[c] = NONE;
+        if !entry.split {
+            entry.split = true;
+            let prev = entry.body;
+            entry.body = NONE;
             if prev != NONE {
                 self.place(cell, prev, depth);
             }
         }
         self.place(cell, node, depth);
-        let t = &mut self.tree;
-        let mass = t.mass[c];
+        let entry = &mut self.tree.cells[c];
+        let mass = entry.mass;
         let m = mass + 1.0;
-        t.cx[c] = (t.cx[c] * mass + self.x[node as usize]) / m;
-        t.cy[c] = (t.cy[c] * mass + self.y[node as usize]) / m;
-        t.mass[c] = m;
+        entry.cx = (entry.cx * mass + nx) / m;
+        entry.cy = (entry.cy * mass + ny) / m;
+        entry.mass = m;
     }
 
     fn place(&mut self, cell: u32, node: u32, depth: u32) {
         let c = cell as usize;
         let (nx, ny) = (self.x[node as usize], self.y[node as usize]);
         let t = &mut self.tree;
-        let half = t.size[c] / 2.0;
-        let right = nx >= t.x0[c] + half;
-        let bottom = ny >= t.y0[c] + half;
-        let slot = c * 4 + if bottom { 2 } else { 0 } + usize::from(right);
-        if t.children[slot] == NONE {
-            let x0 = t.x0[c] + if right { half } else { 0.0 };
-            let y0 = t.y0[c] + if bottom { half } else { 0.0 };
-            t.children[slot] = t.cell(x0, y0, half);
+        let entry = t.cells[c];
+        let half = entry.size / 2.0;
+        let right = nx >= entry.x0 + half;
+        let bottom = ny >= entry.y0 + half;
+        let slot = if bottom { 2 } else { 0 } + usize::from(right);
+        let mut child = entry.children[slot];
+        if child == NONE {
+            let x0 = entry.x0 + if right { half } else { 0.0 };
+            let y0 = entry.y0 + if bottom { half } else { 0.0 };
+            child = t.cell(x0, y0, half);
+            t.cells[c].children[slot] = child;
         }
-        let child = self.tree.children[slot];
         self.insert(child, node, depth + 1);
     }
 
@@ -213,6 +239,7 @@ impl Layout {
         for i in 0..n {
             self.insert(0, u32::try_from(i).unwrap_or(NONE), 0);
         }
+        self.tree.renumber();
 
         let strength = repel * alpha;
         let mut stack = std::mem::take(&mut self.stack);
@@ -221,23 +248,24 @@ impl Layout {
             let (nx, ny) = (self.x[node], self.y[node]);
             stack.clear();
             stack.push(0);
+            let (mut fvx, mut fvy) = (self.vx[node], self.vy[node]);
             while let Some(cell) = stack.pop() {
-                let c = cell as usize;
                 let t = &self.tree;
-                if t.mass[c] == 0.0 {
+                let entry = &t.cells[cell as usize];
+                if entry.mass == 0.0 {
                     continue;
                 }
-                let mut dx = nx - t.cx[c];
-                let mut dy = ny - t.cy[c];
+                let mut dx = nx - entry.cx;
+                let mut dy = ny - entry.cy;
                 let mut d2 = dx * dx + dy * dy;
-                if t.body[c] == node32 && t.mass[c] == 1.0 {
+                if entry.body == node32 && entry.mass == 1.0 {
                     continue;
                 }
-                let leaf = !t.split[c];
-                let contains = !leaf && nx >= t.x0[c] && nx < t.x0[c] + t.size[c] && ny >= t.y0[c] && ny < t.y0[c] + t.size[c];
-                if leaf || (!contains && (t.size[c] * t.size[c]) / d2 < THETA2) {
-                    let own = t.body[c] == node32 || t.in_bucket(c, node32);
-                    let cell_mass = t.mass[c];
+                let leaf = !entry.split;
+                let contains = !leaf && nx >= entry.x0 && nx < entry.x0 + entry.size && ny >= entry.y0 && ny < entry.y0 + entry.size;
+                if leaf || (!contains && opens_below_theta(entry.size2, d2)) {
+                    let own = entry.body == node32 || (entry.bucket != NONE && t.in_bucket(entry, node32));
+                    let cell_mass = entry.mass;
                     if d2 < 0.01 {
                         dx = (self.random() - 0.5) * 0.1;
                         dy = (self.random() - 0.5) * 0.1;
@@ -249,17 +277,18 @@ impl Layout {
                     }
                     let d = d2.sqrt();
                     let f = (strength * mass) / d2;
-                    self.vx[node] += (dx / d) * f;
-                    self.vy[node] += (dy / d) * f;
+                    fvx += (dx / d) * f;
+                    fvy += (dy / d) * f;
                     continue;
                 }
-                for k in 0..4 {
-                    let child = t.children[c * 4 + k];
+                for &child in &entry.children {
                     if child != NONE {
                         stack.push(child);
                     }
                 }
             }
+            self.vx[node] = fvx;
+            self.vy[node] = fvy;
         }
         self.stack = stack;
 
@@ -300,6 +329,21 @@ impl Layout {
             self.y[i] += self.vy[i];
         }
         alpha * 0.98
+    }
+}
+
+/// Exactly `size2 / d2 < THETA2` as the reference rounds it, without a division unless the quotient lies within
+/// 2^-48 (relative) of THETA2: outside that band the rounded product decides the same way, inside it divides.
+#[inline]
+fn opens_below_theta(size2: f64, d2: f64) -> bool {
+    const MARGIN: f64 = 1.0 / 281_474_976_710_656.0;
+    let p = THETA2 * d2;
+    if size2 < p * (1.0 - MARGIN) {
+        true
+    } else if size2 > p * (1.0 + MARGIN) {
+        false
+    } else {
+        size2 / d2 < THETA2
     }
 }
 
