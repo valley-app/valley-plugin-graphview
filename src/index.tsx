@@ -1,5 +1,5 @@
 /**
- * Graph View — a knowledge graph rendered entirely from the scoped vault index.
+ * Graph View — a knowledge graph rendered entirely from the scoped realm index.
  * Three views:
  *   - `graphView.global`    (left_sidebar): the row naming the active saved
  *     graph, then the Filters / Color groups / Display controls — one section

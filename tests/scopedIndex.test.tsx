@@ -81,7 +81,7 @@ it('resolves fence targets by filename, title and alias from owned pages', async
   expect(mock.api.getState().indexEntries).toEqual([])
 })
 
-it('joins held reads and releases once without publishing after vault revocation', async () => {
+it('joins held reads and releases once without publishing after realm revocation', async () => {
   const mock = createMockValleyApi({ manifest: { id: 'graphView', indexState: 'scoped' }, indexEntries: [entry(0)] })
   const held = hold(mock, 0)
   const dispose = register(mock.api)
@@ -91,9 +91,9 @@ it('joins held reads and releases once without publishing after vault revocation
   await waitFor(() => expect(held.captured()).toBeDefined())
   const changed = vi.fn()
   index.subscribe(changed)
-  const root = mock.api.getState().vault
-  mock.emitState({ vault: { path: '/mock/other', name: 'other', displayName: 'other' } })
-  mock.emitState({ vault: root })
+  const root = mock.api.getState().realm
+  mock.emitState({ realm: { path: '/mock/other', name: 'other', displayName: 'other' } })
+  mock.emitState({ realm: root })
   const ended = vi.fn()
   const closing = dispose()
   expect(dispose()).toBe(closing)
@@ -144,7 +144,7 @@ it('joins every accepted document refresh after a sibling read rejects', async (
   const read = vi.spyOn(mock.api.documents, 'read')
     .mockRejectedValueOnce(new Error('first read failed'))
     .mockImplementationOnce(async () => { await held; return null })
-  changed({ vaultGeneration: 1, reason: 'commit', refs: [
+  changed({ realmGeneration: 1, reason: 'commit', refs: [
     { pluginId: 'journal', sourceId: 'notes', itemId: 'first' },
     { pluginId: 'journal', sourceId: 'notes', itemId: 'second' }
   ] })

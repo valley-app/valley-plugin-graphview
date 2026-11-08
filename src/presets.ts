@@ -20,7 +20,7 @@ export interface GraphPresets {
   select: (name: string) => void
   /** Localized reason a name cannot be used, or '' when it can. */
   nameError: (name: string, renaming?: boolean) => string
-  /** New whole-vault graph, selected. Undoable. */
+  /** New whole-realm graph, selected. Undoable. */
   create: (name: string) => boolean
   /** Copy of the active graph under a new name, selected. Undoable. */
   duplicate: (name: string) => boolean
@@ -44,7 +44,7 @@ export interface StoreState {
   config: GraphConfig
   saved: SavedGraph[]
   active: string
-  /** Config of the Default graph, which exists in every vault. */
+  /** Config of the Default graph, which exists in every realm. */
   defaultConfig: GraphConfig
 }
 

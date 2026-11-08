@@ -10,7 +10,7 @@ type Mode = 'idle' | 'new' | 'rename' | 'duplicate'
 /**
  * The row under a graph panel's header that names the active graph. The name
  * opens the saved-graph menu — switch, rename, duplicate, delete — and + starts
- * a new whole-vault graph. Naming swaps the button for an input in the same
+ * a new whole-realm graph. Naming swaps the button for an input in the same
  * frame, so nothing shifts. Graphs save themselves; there is no Save step.
  *
  * Switching graphs re-draws the same view; it opens nothing, so it is not a

@@ -84,7 +84,7 @@ export function hasLiveRules(rules: readonly FilterRule[]): boolean {
 }
 
 /**
- * Include rows are the base — OR-ed, and none means the whole vault — then
+ * Include rows are the base — OR-ed, and none means the whole realm — then
  * exclude rows are subtracted. Tokens inside one row still AND, so
  * `tag:#x -draft` keeps its meaning as a single row.
  */
@@ -108,7 +108,7 @@ const entryTarget = (entry: IndexEntry): QueryTarget => ({
   tags: entry.tags ?? []
 })
 
-/** Vault files in the filter base and removed by each exclusion — tags,
+/** Realm files in the filter base and removed by each exclusion — tags,
  *  unresolved links and plugin items are not files, so they are not counted. */
 export function filterCounts(entries: readonly IndexEntry[], rules: readonly FilterRule[], showAttachments: boolean): FilterCounts {
   const live = rules.filter(isLive)

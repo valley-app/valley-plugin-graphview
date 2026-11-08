@@ -3,7 +3,7 @@ import type { IndexEntry } from '@valley/plugin-sdk/types'
 
 function createOwner(api: ValleyPluginApi, retired: Promise<void> | undefined, onDispose: (pending: Promise<void>) => void) {
   const index = createIndexObserver(api, { fields: ['title', 'kind', 'aliases', 'links', 'tags', 'ctimeMs', 'mtimeMs'] })
-  const root = api.getState().vault?.path
+  const root = api.getState().realm?.path
   let active = true
   let disposal: Promise<void> | undefined
   let source = index.getSnapshot().entries
@@ -17,7 +17,7 @@ function createOwner(api: ValleyPluginApi, retired: Promise<void> | undefined, o
   let offLanguage: (() => void) | undefined
   let waiting: { promise: Promise<void>; resolve(): void; reject(error: Error): void } | undefined
   const assertCurrent = (): void => {
-    if (!active || api.getState().vault?.path !== root) throw new Error('The graph index session is no longer active.')
+    if (!active || api.getState().realm?.path !== root) throw new Error('The graph index session is no longer active.')
   }
   const rejectWaiting = (error: Error): void => { waiting?.reject(error); waiting = undefined }
   const current = (): boolean => { try { assertCurrent(); return true } catch { return false } }
@@ -79,7 +79,7 @@ function createOwner(api: ValleyPluginApi, retired: Promise<void> | undefined, o
     if (snapshot.status === 'ready') { waiting?.resolve(); waiting = undefined }
     else if (snapshot.status === 'error') rejectWaiting(new Error(snapshot.error ?? 'The graph index is unavailable.'))
   })
-  let offVault = (): void => {}
+  let offRealm = (): void => {}
   const owner = {
     api,
     resolve(reference: string): string | null {
@@ -117,7 +117,7 @@ function createOwner(api: ValleyPluginApi, retired: Promise<void> | undefined, o
     dispose(): Promise<void> {
       if (disposal) return disposal
       active = false
-      offIndex(); offVault()
+      offIndex(); offRealm()
       offDocuments?.(); offLanguage?.(); documentEpoch++; documentListeners.clear()
       for (const cleanup of cleanups) cleanup()
       cleanups.clear()
@@ -130,7 +130,7 @@ function createOwner(api: ValleyPluginApi, retired: Promise<void> | undefined, o
       return disposal
     }
   }
-  offVault = api.subscribeState(['vault'], ({ state }) => { if (state.vault?.path !== root) void owner.dispose().catch(() => {}) })
+  offRealm = api.subscribeState(['realm'], ({ state }) => { if (state.realm?.path !== root) void owner.dispose().catch(() => {}) })
   return owner
 }
 

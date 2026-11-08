@@ -7,7 +7,7 @@ export interface GraphNode {
   id: string
   label: string
   kind: GraphNodeKind
-  /** Vault-relative path (empty for tag / unresolved nodes). */
+  /** Realm-relative path (empty for tag / unresolved nodes). */
   path: string
   documentRef?: NoteDocumentRef
   tags: string[]
@@ -43,7 +43,7 @@ export interface FilterRule {
 }
 
 export interface FilterState {
-  /** Include rows are the base (none = the whole vault); exclude rows subtract from it. */
+  /** Include rows are the base (none = the whole realm); exclude rows subtract from it. */
   rules: FilterRule[]
   showTags: boolean
   showAttachments: boolean

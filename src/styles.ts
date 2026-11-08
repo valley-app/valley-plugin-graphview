@@ -104,7 +104,7 @@ const CSS = `
 .graphview-slider::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:10px; height:10px;
   border-radius:50%; background:var(--accent-color); margin-top:2px; }
 
-/* Query rows: the base ("Whole vault" until narrowed), exclusions and color
+/* Query rows: the base ("Whole realm" until narrowed), exclusions and color
    groups. The flex cell sizes the full-width shared field beside its siblings. */
 .graphview-group { display:flex; align-items:center; gap:6px; }
 .graphview-query { display:flex; flex:1 1 auto; min-width:0; }

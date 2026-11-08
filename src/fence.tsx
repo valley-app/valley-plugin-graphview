@@ -9,7 +9,7 @@
  *   height: 320
  *   ```
  *   ```graph
- *   global: true           → the whole vault graph
+ *   global: true           → the whole realm graph
  *   query: habitats             → filtered like the global graph's search
  *   ```
  *

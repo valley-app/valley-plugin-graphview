@@ -56,7 +56,7 @@ it('releases mounted and provider subscriptions without accessing a revoked sess
 function setup(): MockValleyApi {
   const mock = createMockValleyApi({
     manifest: { id: 'graphView' },
-    vault: { path: '/mock/vault', name: 'mock', displayName: 'mock' },
+    realm: { path: '/mock/realm', name: 'mock', displayName: 'mock' },
     indexEntries: [
       { relPath: FOCUS_PATH, title: 'Fern Canopy', kind: 'note', mtimeMs: 0, frontmatter: {} },
       { relPath: 'Shelf Fungus.md', title: 'Shelf Fungus', kind: 'note', mtimeMs: 0, frontmatter: {} }
@@ -223,7 +223,7 @@ describe('graph tab header', () => {
     await menuItem(mock, 'copy-link').onSelect?.()
     expect(clipboard.mock.calls.flat()).toEqual([
       FOCUS_PATH,
-      `/mock/vault/${FOCUS_PATH}`,
+      `/mock/realm/${FOCUS_PATH}`,
       `valley://open?file=${encodeURIComponent(FOCUS_PATH)}`
     ])
   })
@@ -291,7 +291,7 @@ describe('graph sidebar panel', () => {
     expect(screen.queryByRole('button', { name: 'Plugins' })).toBeNull()
   })
 
-  it('creates a whole-vault graph from + and keeps the header naming the panel', async () => {
+  it('creates a whole-realm graph from + and keeps the header naming the panel', async () => {
     setup()
     const store = storeFor(GLOBAL_KEYS)
     act(() => store.apply({ ...store.get().config, display: { ...store.get().config.display, nodeSize: 2 } }))
@@ -345,12 +345,12 @@ describe('graph sidebar panel', () => {
 })
 
 describe('graph filters', () => {
-  it('starts from the whole vault, narrows it from the base field and subtracts exclusions', async () => {
+  it('starts from the whole realm, narrows it from the base field and subtracts exclusions', async () => {
     setup()
     const onChange = vi.fn()
     const view = render(React.createElement(GraphControls, { config: DEFAULT_CONFIG, onChange, section: 'filters', onSection: () => {} }))
     const base = screen.getByRole('textbox', { name: 'Start from' })
-    expect(base).toHaveAttribute('placeholder', 'Whole vault')
+    expect(base).toHaveAttribute('placeholder', 'Whole realm')
     await waitFor(() => expect(view.container.querySelector('.graphview-base .graphview-count')?.textContent).toBe('2'))
 
     fireEvent.change(base, { target: { value: 'path:Fern' } })
@@ -479,7 +479,7 @@ describe('graph filters', () => {
 describe('graph documents and surface state', () => {
   it('refreshes only committed document identities after the initial metadata query', async () => {
     const ref = { pluginId: 'fieldwork', sourceId: 'notes', itemId: 'fern' }
-    const document: NoteDocument = { id: 'plugin:fieldwork/notes/fern', ref, title: 'Fern', body: '', explicitTags: [], tags: [], links: [], readOnly: false, revision: 1, vaultGeneration: 1, navigation: { command: 'fieldwork:open', args: { id: 'fern' } } }
+    const document: NoteDocument = { id: 'plugin:fieldwork/notes/fern', ref, title: 'Fern', body: '', explicitTags: [], tags: [], links: [], readOnly: false, revision: 1, realmGeneration: 1, navigation: { command: 'fieldwork:open', args: { id: 'fern' } } }
     const mock = createMockValleyApi({ manifest: { id: 'graphView' }, documents: [document] })
     validatePublishedResults(mock)
   initRuntime(mock.api)
@@ -487,7 +487,7 @@ describe('graph documents and surface state', () => {
     const read = vi.spyOn(mock.api.documents, 'read')
     const hook = renderHook(useNoteDocuments)
     await waitFor(() => expect(hook.result.current.documents).toHaveLength(1))
-    await act(async () => { await mock.api.documents.update(ref, { body: '# New body', expectedRevision: 1, vaultGeneration: 1 }) })
+    await act(async () => { await mock.api.documents.update(ref, { body: '# New body', expectedRevision: 1, realmGeneration: 1 }) })
     expect(query).toHaveBeenCalledTimes(1)
     expect(read).toHaveBeenCalledWith(ref)
     expect(hook.result.current.documents[0].body).toBe('# New body')
@@ -524,7 +524,7 @@ describe('graph documents and surface state', () => {
     expect(newQuery).not.toHaveBeenCalled()
   })
 
-  it('discards old-vault pages and stops paging after the captured vault changes', async () => {
+  it('discards old-realm pages and stops paging after the captured realm changes', async () => {
     const mock = setup()
     let release!: () => void
     const held = new Promise<void>(resolve => { release = resolve })
@@ -534,7 +534,7 @@ describe('graph documents and surface state', () => {
     })
     const hook = renderHook(useNoteDocuments)
     await waitFor(() => expect(query).toHaveBeenCalledOnce())
-    await act(async () => { mock.emitState({ vault: { path: '/mock/other', name: 'other', displayName: 'other' } }) })
+    await act(async () => { mock.emitState({ realm: { path: '/mock/other', name: 'other', displayName: 'other' } }) })
     await act(async () => { release(); await held })
     expect(query).toHaveBeenCalledOnce()
     expect(hook.result.current).toEqual({ documents: [], sources: [], error: '' })
@@ -675,7 +675,7 @@ describe('graph documents and surface state', () => {
     const set = mock.api.settings.set.bind(mock.api.settings)
     const getState = vi.spyOn(mock.api, 'getState')
     const write = vi.spyOn(mock.api.settings, 'set').mockImplementationOnce(async (...args: Parameters<typeof set>) => {
-      getState.mockReturnValue({ ...state, vault: { path: '/mock/other', name: 'other', displayName: 'other' } } as never)
+      getState.mockReturnValue({ ...state, realm: { path: '/mock/other', name: 'other', displayName: 'other' } } as never)
       return set(...args)
     })
     const focus = command('focus')

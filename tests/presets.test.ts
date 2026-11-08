@@ -147,7 +147,7 @@ describe('PresetStore', () => {
     expect(new PresetStore(LOCAL_KEYS).get().saved[0].plugins).toEqual({ fieldwork: true, observations: false })
   })
 
-  it('names the Default graph by saving it and resetting Default to the whole vault', () => {
+  it('names the Default graph by saving it and resetting Default to the whole realm', () => {
     store.apply({ ...tweak(store.get().config, 2), filters: { ...store.get().config.filters, rules: [{ id: 'x', query: 'tag:#draft', exclude: true }] } })
     expect(store.renameActive('Research')).toBe(true)
     expect(store.get().active).toBe('Research')
@@ -157,7 +157,7 @@ describe('PresetStore', () => {
     expect(store.get().config).toEqual(DEFAULT_CONFIG)
   })
 
-  it('creates whole-vault graphs, duplicates the current one and keeps names unique ignoring case', () => {
+  it('creates whole-realm graphs, duplicates the current one and keeps names unique ignoring case', () => {
     store.apply(tweak(store.get().config, 1.6))
     expect(store.duplicate('Research')).toBe(true)
     expect(store.get().config.display.nodeSize).toBe(1.6)

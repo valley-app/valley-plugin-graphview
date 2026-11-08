@@ -681,7 +681,7 @@ export const GraphCanvas = ({
 
   // Seed/restore positions whenever the data prop changes. Only reheat the
   // simulation when the topology actually changed — index reloads triggered by
-  // unrelated vault writes (autosave, todos, …) must not make the layout boil.
+  // unrelated realm writes (autosave, todos, …) must not make the layout boil.
   // Pins win over remembered sim positions; unpinned nodes rejoin the sim.
   const applyPins = React.useCallback((): void => {
     for (const n of dataRef.current.nodes) {

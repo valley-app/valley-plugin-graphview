@@ -1,7 +1,7 @@
 import { graphResults } from './commands'
 import { subscribeRuntimePalette } from '@valley/plugin-sdk/palette'
 import { METADATA_PANEL_SEGMENT_V1, provideBookmarkSurface, WORKSPACE_DETAILS_V1, parseNoteDocumentId, type PluginInspectionSubject, type PluginProperty, type UiMenuItem, type ValleyPluginApi } from '@valley/plugin-sdk'
-import { absoluteVaultPath, buildAppOpenUrl, type PluginLinkState } from '@valley/plugin-sdk/paths'
+import { absoluteRealmPath, buildAppOpenUrl, type PluginLinkState } from '@valley/plugin-sdk/paths'
 import type { SlotId, WorkspaceViewStateValue } from '@valley/plugin-sdk/types'
 import { React, api } from './runtime'
 import { storeFor, useGraphPresets, type PresetStore, type StoreState } from './presets'
@@ -113,7 +113,7 @@ const title = (surface: SlotId): string => uiText(surface === 'right_sidebar' ? 
 
 export function graphSurfaceActions(focusPath: string | null, local = false): UiMenuItem[] {
   const keys = local ? LOCAL_KEYS : GLOBAL_KEYS
-  const vault = api.getState().vault
+  const realm = api.getState().realm
   const path = focusPath ?? ''
   const copy = (text: string): void => { void navigator.clipboard.writeText(text) }
   return [
@@ -127,7 +127,7 @@ export function graphSurfaceActions(focusPath: string | null, local = false): Ui
     ...(path ? [
       { type: 'separator' as const },
       { id: 'copy-relative', label: uiText('auto.75586047078a'), icon: <Copy />, onSelect: () => copy(path) },
-      { id: 'copy-absolute', label: uiText('auto.b96d429c4495'), icon: <Copy />, onSelect: () => copy(absoluteVaultPath(vault?.path, path)) },
+      { id: 'copy-absolute', label: uiText('auto.b96d429c4495'), icon: <Copy />, onSelect: () => copy(absoluteRealmPath(realm?.path, path)) },
       { id: 'copy-link', label: uiText('auto.fb3a16f382f8'), icon: <Copy />, onSelect: () => copy(buildAppOpenUrl(path)) }
     ] : [])
   ]
@@ -232,7 +232,7 @@ export function registerGraphSurfaces(pluginApi: ValleyPluginApi): () => void {
   let active = true
   const assertActive = (): void => { if (!active) throw new Error(uiText('surface.unavailable')); index.assertCurrent() }
   const surfaces = ['main_workspace', 'left_sidebar', 'right_sidebar'] as const
-  const offs = [subscribeRuntimePalette(notify), storeFor(GLOBAL_KEYS).subscribe(notify), storeFor(LOCAL_KEYS).subscribe(notify), index.subscribe(notify), index.subscribeDocuments(notify), pluginApi.ui.onLanguageChanged(notify), pluginApi.subscribeState(['activePath', 'vault'], notify), pluginApi.settings.subscribe(notify)]
+  const offs = [subscribeRuntimePalette(notify), storeFor(GLOBAL_KEYS).subscribe(notify), storeFor(LOCAL_KEYS).subscribe(notify), index.subscribe(notify), index.subscribeDocuments(notify), pluginApi.ui.onLanguageChanged(notify), pluginApi.subscribeState(['activePath', 'realm'], notify), pluginApi.settings.subscribe(notify)]
   offs.push(...surfaces.map((surface) => provideBookmarkSurface(pluginApi, {
     id: `graphView.${surface}`, surface, subscribe,
     getSnapshot: () => {

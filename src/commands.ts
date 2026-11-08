@@ -100,7 +100,7 @@ export function registerGraphCommands(api: ValleyPluginApi): () => void {
       paletteSafe: false,
       sideEffect: 'write',
       revision: () => storeFor(GLOBAL_KEYS).get(),
-      usage: 'graphView focus <vault-relative path>',
+      usage: 'graphView focus <realm-relative path>',
       input: {
         schema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'], additionalProperties: false },
         parse: (raw) => {

@@ -18,7 +18,7 @@ export function useIndexEntries(): IndexEntry[] {
   return React.useSyncExternalStore(owner.subscribe, owner.entries, owner.entries)
 }
 
-/** Vault-relative path of the active workspace file, live. */
+/** Realm-relative path of the active workspace file, live. */
 export function useActivePath(): string | null {
   const [path, setPath] = React.useState<string | null>(() => api.getState().activePath)
   React.useEffect(() => {

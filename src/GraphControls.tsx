@@ -6,7 +6,7 @@ import type { ColorGroup, FilterRule, FilterState, GraphConfig, GraphSourcePlugi
 import { graphPluginColors, graphPluginSources } from './graphModel'
 import { QUERY_PLACEHOLDER, filterCounts } from './filters'
 import { uiText } from './localization'
-import { Eye, Filter, GripVertical, Groups, Minus, Vault, X } from './icons'
+import { Eye, Filter, GripVertical, Groups, Minus, Realm, X } from './icons'
 import { useIndexEntries, useNoteDocuments } from './useGraph'
 import { nextPaletteColor, runtimePaletteSnapshot, subscribeRuntimePalette } from '@valley/plugin-sdk/palette'
 
@@ -88,7 +88,7 @@ const Slider = ({
 const newRuleId = (prefix: string): string => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
 
 /**
- * The graph starts from its base — the whole vault unless the base query names
+ * The graph starts from its base — the whole realm unless the base query names
  * fewer files — and every exclusion subtracts from that base. Counts say how
  * many files each step covers, so it is always clear what is being removed.
  */
@@ -112,7 +112,7 @@ const QueryRules = ({
   const patch = (id: string, query: string): void => onChange(rules.map((rule) => (rule.id === id ? { ...rule, query } : rule)))
   const remove = (id: string): void => onChange(rules.filter((rule) => rule.id !== id))
   // The first base field edits the first include rule — or creates it — under
-  // one stable key, so typing into "Whole vault" keeps the caret in place.
+  // one stable key, so typing into "Whole realm" keeps the caret in place.
   const setBase = (query: string): void => {
     const first = includes[0]
     if (!first) {
@@ -131,7 +131,7 @@ const QueryRules = ({
       {formatCount(counts.base)}
     </span>
   )
-  const wholeVault = uiText('graph.wholeVault')
+  const wholeRealm = uiText('graph.wholeRealm')
   const first = includes[0]
 
   return (
@@ -139,12 +139,12 @@ const QueryRules = ({
       <div className="graphview-group" key="base">
         <div className="graphview-query">
           <div className="search-field graphview-base" data-empty={!first?.query && !baseFocused ? 'true' : undefined} title={uiText('graph.base.hint')}>
-            <Vault className="search-field-icon" />
+            <Realm className="search-field-icon" />
             <input
               className="search-field-input"
               spellCheck={false}
               aria-label={uiText('graph.base.label')}
-              placeholder={baseFocused ? QUERY_PLACEHOLDER : wholeVault}
+              placeholder={baseFocused ? QUERY_PLACEHOLDER : wholeRealm}
               value={first?.query ?? ''}
               onFocus={() => setBaseFocused(true)}
               onBlur={() => setBaseFocused(false)}
@@ -166,7 +166,7 @@ const QueryRules = ({
         <div className="graphview-group" key={rule.id}>
           <div className="graphview-query">
             <div className="search-field graphview-base">
-              <Vault className="search-field-icon" />
+              <Realm className="search-field-icon" />
               <input
                 className="search-field-input"
                 spellCheck={false}

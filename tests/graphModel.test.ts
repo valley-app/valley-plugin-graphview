@@ -31,7 +31,7 @@ const ids = (g: { nodes: { id: string }[] }): string[] => g.nodes.map((n) => n.i
 
 function document(pluginId: string, itemId: string, extra: Partial<NoteDocument> = {}): NoteDocument {
   const ref = { pluginId, sourceId: 'items', itemId }
-  return { id: noteDocumentId(ref), ref, title: itemId, body: '', tags: [], explicitTags: [], links: [], readOnly: false, revision: 1, vaultGeneration: 1, navigation: { command: `${pluginId}:open`, args: { id: itemId } }, ...extra }
+  return { id: noteDocumentId(ref), ref, title: itemId, body: '', tags: [], explicitTags: [], links: [], readOnly: false, revision: 1, realmGeneration: 1, navigation: { command: `${pluginId}:open`, args: { id: itemId } }, ...extra }
 }
 
 describe('buildGraph', () => {

@@ -31,7 +31,7 @@ function makeNode(partial: Omit<GraphNode, 'x' | 'y' | 'vx' | 'vy' | 'degree'>, 
 }
 
 /**
- * Build the full graph from the vault index, then apply filters. Edges come from
+ * Build the full graph from the realm index, then apply filters. Edges come from
  * `IndexEntry.links` (lowercased basenames) resolved back to real entries.
  */
 function projectGraph(
