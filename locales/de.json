@@ -120,5 +120,6 @@
   "bookmark.view": "Graphansicht",
   "bookmark.item": "Ausgewählter Eintrag",
   "graph.local.notInGraph": "Diese Datei ist nicht Teil des Graphen.",
-  "graph.layoutUnavailable": "Das Graph-Layout konnte nicht starten, deshalb bleiben die Knoten, wo sie sind. Lade Graphansicht neu, um es erneut zu versuchen."
+  "graph.layoutUnavailable": "Das Graph-Layout konnte nicht starten, deshalb bleiben die Knoten, wo sie sind. Lade Graphansicht neu, um es erneut zu versuchen.",
+  "menu.openLocal": "Lokalen Graphen öffnen"
 }

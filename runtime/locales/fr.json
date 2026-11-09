@@ -120,5 +120,6 @@
   "bookmark.view": "Vue du graphe",
   "bookmark.item": "Élément sélectionné",
   "graph.local.notInGraph": "Ce fichier ne fait pas partie du graphique.",
-  "graph.layoutUnavailable": "La disposition du graphe n’a pas pu démarrer : les nœuds restent à leur place. Rechargez Vue graphe pour réessayer."
+  "graph.layoutUnavailable": "La disposition du graphe n’a pas pu démarrer : les nœuds restent à leur place. Rechargez Vue graphe pour réessayer.",
+  "menu.openLocal": "Ouvrir le graphe local"
 }

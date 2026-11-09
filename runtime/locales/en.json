@@ -120,5 +120,6 @@
   "bookmark.view": "Graph view",
   "bookmark.item": "Selected item",
   "graph.local.notInGraph": "This file is not part of the graph.",
-  "graph.layoutUnavailable": "The graph layout could not start, so nodes stay where they are. Reload Graph View to try again."
+  "graph.layoutUnavailable": "The graph layout could not start, so nodes stay where they are. Reload Graph View to try again.",
+  "menu.openLocal": "Open Local Graph"
 }

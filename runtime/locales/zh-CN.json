@@ -120,5 +120,6 @@
   "bookmark.view": "图谱视图",
   "bookmark.item": "所选项目",
   "graph.local.notInGraph": "此文件不属于图谱。",
-  "graph.layoutUnavailable": "图谱布局无法启动，节点将保持原位。请重新加载图谱视图后重试。"
+  "graph.layoutUnavailable": "图谱布局无法启动，节点将保持原位。请重新加载图谱视图后重试。",
+  "menu.openLocal": "打开局部图谱"
 }

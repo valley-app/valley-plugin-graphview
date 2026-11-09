@@ -120,5 +120,6 @@
   "bookmark.view": "Vista del grafo",
   "bookmark.item": "Elemento seleccionado",
   "graph.local.notInGraph": "Este archivo no forma parte del gráfico.",
-  "graph.layoutUnavailable": "No se pudo iniciar la disposición del grafo, así que los nodos se quedan donde están. Recarga Vista de grafo para intentarlo de nuevo."
+  "graph.layoutUnavailable": "No se pudo iniciar la disposición del grafo, así que los nodos se quedan donde están. Recarga Vista de grafo para intentarlo de nuevo.",
+  "menu.openLocal": "Abrir grafo local"
 }

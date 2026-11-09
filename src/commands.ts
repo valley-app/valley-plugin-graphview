@@ -55,6 +55,7 @@ export function registerGraphCommands(api: ValleyPluginApi): () => void {
   const offs = [
     register({
       id: 'open',
+      menu: false,
       label: 'Graph: open', labelKey: 'auto.294209f3ac65',
       paletteSafe: true,
       // Opening or focusing a tab changes window state; it is not a read.
@@ -67,7 +68,7 @@ export function registerGraphCommands(api: ValleyPluginApi): () => void {
       formatCli: () => 'Opened the graph.'
     }),
     register({
-      id: 'open-local', label: 'Open local graph view', labelKey: 'surface.openLocal', sideEffect: 'execute', paletteSafe: true,
+      id: 'open-local', menu: { group: 'view', order: 10, label: 'Open Local Graph', labelKey: 'menu.openLocal' }, label: 'Open local graph view', labelKey: 'surface.openLocal', sideEffect: 'execute', paletteSafe: true,
       run: () => { api.workspace.revealOwnPanel('right_sidebar'); return { opened: true } }
     }),
     register({

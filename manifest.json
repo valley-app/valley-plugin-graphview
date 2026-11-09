@@ -2,7 +2,7 @@
   "apiVersion": 5,
   "id": "graphView",
   "name": "Graph View",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Knowledge graph of the realm with filters, color groups, saved graphs, and a per-file local graph.",
   "author": [
     "valley"
